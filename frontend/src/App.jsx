@@ -1,35 +1,69 @@
-import { useState } from 'react'
-import reactLogo from '/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import { useMemo, useState } from 'react';
+import { useMediaQuery } from 'react-responsive';
+import {
+  AppBar, Box, Container, CssBaseline, IconButton, Toolbar, Tooltip, Typography,
+} from '@mui/material';
+import { ThemeProvider } from '@mui/material/styles';
+import DarkModeOutlinedIcon from '@mui/icons-material/DarkModeOutlined';
+import LightModeOutlinedIcon from '@mui/icons-material/LightModeOutlined';
+import buildTheme from './theme/theme';
+import Dashboard from './pages/Dashboard';
 
-function App() {
-  const [count, setCount] = useState(0)
+/**
+ * Application shell.
+ *
+ * The color mode follows the operating system by default and can be overridden
+ * from the toolbar. Both the light and dark step sets are chosen against their
+ * own surface rather than one being an automatic inversion of the other.
+ *
+ * @returns {JSX.Element} The rendered application.
+ */
+export default function App() {
+  const prefersDark = useMediaQuery({ query: '(prefers-color-scheme: dark)' });
+  const [override, setOverride] = useState(null);
+
+  const mode = override ?? (prefersDark ? 'dark' : 'light');
+  const theme = useMemo(() => buildTheme(mode), [mode]);
 
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.jsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
-}
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
+      <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
+        <AppBar
+          position="sticky"
+          elevation={0}
+          color="transparent"
+          sx={{
+            backdropFilter: 'blur(8px)',
+            bgcolor: 'background.paper',
+            borderBottom: 1,
+            borderColor: 'divider',
+          }}
+        >
+          <Toolbar sx={{ gap: 2 }}>
+            <Typography variant="body1" sx={{ fontWeight: 700, flexGrow: 1 }}>
+              ACME&nbsp;
+              <Box component="span" sx={{ color: 'text.secondary', fontWeight: 500 }}>
+                Initiative Tracker
+              </Box>
+            </Typography>
 
-export default App
+            <Tooltip title={mode === 'dark' ? 'Switch to light' : 'Switch to dark'}>
+              <IconButton
+                onClick={() => setOverride(mode === 'dark' ? 'light' : 'dark')}
+                aria-label="Toggle color mode"
+                size="small"
+              >
+                {mode === 'dark' ? <LightModeOutlinedIcon /> : <DarkModeOutlinedIcon />}
+              </IconButton>
+            </Tooltip>
+          </Toolbar>
+        </AppBar>
+
+        <Container maxWidth="lg" sx={{ py: { xs: 3, sm: 4 } }}>
+          <Dashboard />
+        </Container>
+      </Box>
+    </ThemeProvider>
+  );
+}

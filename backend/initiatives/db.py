@@ -1,5 +1,6 @@
 """
-PostgreSQL connectivity and error translation for the initiatives service.
+
+SQL connectivity and error translation for the initiatives service.
 
 The connection is held in a module-level variable so it survives between Lambda
 invocations within the same container, which avoids paying connection setup on

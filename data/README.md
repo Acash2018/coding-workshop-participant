@@ -15,6 +15,162 @@ view changes.
 
 ---
 
+## Database choice: PostgreSQL, not MongoDB
+
+The workshop environment ships **both** databases, so this was a real decision
+rather than a default. It went to PostgreSQL, and this section records why and
+what the unused MongoDB path consists of.
+
+### What the environment provides for MongoDB
+
+None of the following was set up by this project — it is all workshop
+scaffolding that was present before any application code was written:
+
+| Piece | Where | State |
+| ----- | ----- | ----- |
+| Local `mongod` (8.0) | `localhost:27017` | **Running.** Installed and enabled by `install_mongodb()` in [`bin/setup-environment.sh`](../bin/setup-environment.sh), alongside PostgreSQL |
+| `mongosh` / `mongod` binaries | `/usr/bin` | Installed |
+| AWS DocumentDB (Mongo-compatible) | [`infra/documentdb.tf`](../infra/documentdb.tf) | **Not provisioned.** Every resource is gated on `var.aws_mongo_enabled`, which defaults to `false` |
+| Connection helpers | `backend/_examples/{python,nodejs,java}-service/` | Example `mongo_service` modules with pooled clients |
+| Environment variables | `MONGO_HOST`, `MONGO_PORT`, `MONGO_NAME`, `MONGO_USER`, `MONGO_PASS` | Injected automatically, empty unless enabled |
+
+So MongoDB is *available locally and unconfigured in the cloud*. The asymmetry
+matters: [`docs/full-stack.md`](../docs/full-stack.md) notes it "comes
+pre-installed locally, although not in the cloud."
+
+### How it would be enabled
+
+Enabling is a Terraform variable, not a code change. Per the full-stack guide:
+
+```sh
+echo "export TF_VAR_aws_mongo_enabled=true" >> ~/.bashrc
+source ~/.bashrc
+./bin/deploy-backend.sh
+```
+
+That flips the `count` on the DocumentDB cluster, subnet group and instance, and
+subsequent deploys provision them. Application code would then connect through
+`MONGO_*` rather than `POSTGRES_*`, with two differences from local: TLS is
+required (`tls=True`, `tlsAllowInvalidCertificates=True`) and retryable writes
+must be disabled (`retryWrites=False`), neither of which applies to the local
+instance.
+
+### Why PostgreSQL was chosen instead
+
+Three reasons, in descending order of weight:
+
+**The domain is relational, and the hard questions are joins.** The two most
+valuable queries in the brief are aggregations across entities. "Who is
+over-allocated" is a sum over a many-to-many with an attribute; "budget consumed
+versus planned" joins allocations to employees to initiatives. The milestone
+dependency chain is a recursive graph walk, which `WITH RECURSIVE ... CYCLE`
+does natively and which is precisely the shape a document store handles worst.
+
+**The 40-hour rule needs a real constraint.** The capacity rule described below
+is enforced by a deferrable constraint trigger inside the database, so it holds
+no matter which service writes. There is no equivalent transactional guarantee
+available for a cross-document invariant in DocumentDB.
+
+**Cloud support is asymmetric.** PostgreSQL is provisioned by default;
+DocumentDB is not. Choosing MongoDB would have meant enabling infrastructure,
+re-running Terraform, and handling the TLS differences — cost with no
+corresponding benefit, since none of the entities need schema flexibility.
+
+The requirements also name PostgreSQL explicitly, and the full-stack guide calls
+it "the recommended database option."
+
+---
+
+## How PostgreSQL is provisioned
+
+There are two environments, provisioned by completely different mechanisms, and
+the application code is written not to care which it is talking to.
+
+### Local
+
+The server itself is **not** provisioned by this project.
+[`bin/setup-environment.sh`](../bin/setup-environment.sh) installs PostgreSQL
+(pinned to major version 18 via `POSTGRES_VERSION`), starts it on
+`localhost:5432`, and sets the `postgres` superuser password to `postgres123`.
+That runs once, as part of workshop environment setup.
+
+What this project adds is the database contents:
+
+```sh
+export PGPASSWORD=postgres123
+psql -h localhost -U postgres -c "CREATE DATABASE acme_dev;"
+psql -h localhost -U postgres -d acme_dev -v ON_ERROR_STOP=1 -f data/schema.sql
+psql -h localhost -U postgres -d acme_dev -v ON_ERROR_STOP=1 -f data/views.sql
+```
+
+`ON_ERROR_STOP=1` matters here — without it `psql` continues past a failed
+statement and reports success while leaving a half-built schema behind.
+
+### Cloud
+
+[`infra/rds.tf`](../infra/rds.tf) declares an **Aurora PostgreSQL Serverless v2**
+cluster. It is created by default: every resource is gated on
+`var.aws_postgres_enabled`, which defaults to `true` in
+[`infra/variable.tf`](../infra/variable.tf) — the mirror image of the DocumentDB
+gate above.
+
+| Setting | Value |
+| ------- | ----- |
+| Engine | `aurora-postgresql` 17.7 |
+| Instance class | `db.serverless` |
+| Capacity | 0.0–4.0 ACU (scales to zero when idle) |
+| Database name | `codingworkshop` (project name, hyphens stripped) |
+| Master user | `superadmin` |
+| Master password | Generated by `random_pet` |
+| Encryption | Storage encrypted |
+| Backups | 7-day retention, 07:00–09:00 window |
+| Logs | `postgresql` exported to CloudWatch |
+
+> **Version skew.** Local is PostgreSQL 18; Aurora is pinned to 17.7. Nothing in
+> this schema requires 18 — `WITH RECURSIVE ... CYCLE` is 14+, generated columns
+> are 12+ — so both work. But local is not a perfect rehearsal for deployed.
+
+### How connection details reach the code
+
+No credentials are hardcoded and none are committed. Terraform composes the
+`POSTGRES_*` environment variables in [`infra/locals.tf`](../infra/locals.tf) and
+injects them into every Lambda. The switch is the AWS account id: LocalStack
+reports `000000000000`, real AWS does not.
+
+| Variable | Local (LocalStack) | Cloud |
+| -------- | ------------------ | ----- |
+| `IS_LOCAL` | `true` | `false` |
+| `POSTGRES_HOST` | `172.17.0.1` (Docker bridge to the host) | Aurora cluster endpoint |
+| `POSTGRES_PORT` | `5432` | Cluster port |
+| `POSTGRES_NAME` | `postgres` | `codingworkshop` |
+| `POSTGRES_USER` | `postgres` | `superadmin` |
+| `POSTGRES_PASS` | `postgres123` | Generated cluster password |
+
+[`backend/initiatives/db.py`](../backend/initiatives/db.py) reads these and uses
+`IS_LOCAL` for the one behavioural difference that matters: Aurora requires SSL
+(`sslmode=require`), the local server does not offer it (`sslmode=prefer`).
+
+### Two gaps to be aware of
+
+**Nothing applies `schema.sql` to Aurora.** [`bin/deploy-backend.sh`](../bin/deploy-backend.sh)
+ships Lambda code only, and every `psql` reference under `bin/` concerns the
+*local* install. A deploy therefore produces working Lambdas pointed at an empty
+database, and every endpoint fails on a missing table. Applying the schema to
+Aurora is a manual step — or wants a migration job — and it has not been done.
+
+**The local Lambda's database name is fixed to `postgres`.** The table above is
+not configurable per project: `POSTGRES_NAME` is hardcoded to `postgres` for
+LocalStack. A schema applied only to `acme_dev` is invisible to a Lambda running
+in LocalStack, even though `psql` and the local test suite find it fine. Apply
+the schema to **both** databases, or use `postgres` throughout:
+
+```sh
+psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f data/schema.sql
+psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f data/views.sql
+```
+
+---
+
 ## Domain model
 
 The model deliberately describes **initiatives**, not projects. There are no
