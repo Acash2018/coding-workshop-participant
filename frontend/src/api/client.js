@@ -146,6 +146,37 @@ export const initiativesApi = {
   milestones: (id) => request(`/initiatives/${id}/milestones`),
 
   /**
+   * Lists employees with spare capacity during a proposed allocation window.
+   *
+   * @param {number} id Initiative id.
+   * @param {{start: string, end?: string}} window Proposed period.
+   * @returns {Promise<Array<object>>} Employees, most headroom first.
+   */
+  candidates: (id, window) =>
+    request(`/initiatives/${id}/candidates${toQuery(window)}`),
+
+  /**
+   * Commits an employee to an initiative.
+   *
+   * @param {number} id Initiative id.
+   * @param {object} payload Employee, percentage and period.
+   * @returns {Promise<object>} The stored allocation.
+   * @throws {ApiError} 409 when the 100% capacity rule would be breached.
+   */
+  addAllocation: (id, payload) =>
+    request(`/initiatives/${id}/allocations`, { method: 'POST', body: payload }),
+
+  /**
+   * Removes an employee's commitment to an initiative.
+   *
+   * @param {number} id Initiative id.
+   * @param {number} allocationId Allocation to remove.
+   * @returns {Promise<null>} Resolves once removed.
+   */
+  removeAllocation: (id, allocationId) =>
+    request(`/initiatives/${id}/allocations/${allocationId}`, { method: 'DELETE' }),
+
+  /**
    * Creates an initiative.
    *
    * @param {object} payload The new initiative.

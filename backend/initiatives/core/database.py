@@ -6,7 +6,7 @@ The connection is held in a module-level variable so it survives between Lambda
 invocations within the same container, which avoids paying connection setup on
 every warm request.
 
-NOTE: Terraform bundles each folder under backend/ independently, so this module
+NOTE: Terraform bundles each folder under backend/ independently, so this package
 cannot be imported from a shared package - it is duplicated per service by
 design. Keep edits in sync across services.
 """

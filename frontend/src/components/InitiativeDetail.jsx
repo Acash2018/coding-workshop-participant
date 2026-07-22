@@ -7,8 +7,11 @@ import {
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlined';
 import initiativesApi from '../api/client';
 import StatusChip from './StatusChip';
+import AddAllocationForm from './AddAllocationForm';
+import BudgetEditor from './BudgetEditor';
 import { milestoneRoles, riskRoles } from '../theme/vizTokens';
 
 /**
@@ -46,12 +49,14 @@ function describeVariance(variance) {
  * @param {{initiative: object|null, onClose: Function}} props Component props.
  * @returns {JSX.Element|null} The dialog, or null when nothing is selected.
  */
-export default function InitiativeDetail({ initiative, onClose }) {
+export default function InitiativeDetail({ initiative, onClose, onChanged }) {
   const isNarrow = useMediaQuery({ maxWidth: 899 });
   const [team, setTeam] = useState([]);
   const [milestones, setMilestones] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  // Bumped after a write so the team list refetches without remounting.
+  const [version, setVersion] = useState(0);
 
   useEffect(() => {
     if (!initiative) return undefined;
@@ -74,7 +79,38 @@ export default function InitiativeDetail({ initiative, onClose }) {
     return () => {
       active = false;
     };
-  }, [initiative]);
+  }, [initiative, version]);
+
+  /**
+   * Refreshes this dialog and the portfolio behind it after a write.
+   *
+   * Budget consumption is derived from allocations, so adding or removing a
+   * person changes figures on the dashboard too - refreshing only the dialog
+   * would leave the two disagreeing.
+   *
+   * @returns {void}
+   */
+  const handleChanged = () => {
+    setVersion((n) => n + 1);
+    onChanged();
+  };
+
+  /**
+   * Removes an allocation after confirming intent.
+   *
+   * @param {object} row The allocation to remove.
+   * @returns {Promise<void>} Resolves once the request settles.
+   */
+  const handleRemove = async (row) => {
+    // eslint-disable-next-line no-alert
+    if (!window.confirm(`Remove ${row.full_name} from this initiative?`)) return;
+    try {
+      await initiativesApi.removeAllocation(initiative.id, row.id);
+      handleChanged();
+    } catch (err) {
+      setError(err.message);
+    }
+  };
 
   if (!initiative) return null;
 
@@ -171,6 +207,7 @@ export default function InitiativeDetail({ initiative, onClose }) {
                       <TableCell>Role</TableCell>
                       <TableCell align="right">Commitment</TableCell>
                       <TableCell>Period</TableCell>
+                      <TableCell align="right" />
                     </TableRow>
                   </TableHead>
                   <TableBody>
@@ -201,13 +238,30 @@ export default function InitiativeDetail({ initiative, onClose }) {
                             <Chip label="ended" size="small" variant="outlined" sx={{ mt: 0.5 }} />
                           )}
                         </TableCell>
+                        <TableCell align="right">
+                          <IconButton
+                            size="small"
+                            aria-label={`Remove ${row.full_name} from this initiative`}
+                            onClick={() => handleRemove(row)}
+                          >
+                            <DeleteOutlineIcon fontSize="small" />
+                          </IconButton>
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
                 </Table>
                 </Box>
               )}
+
+              <Box sx={{ mt: 2 }}>
+                <AddAllocationForm initiativeId={initiative.id} onAdded={handleChanged} />
+              </Box>
             </Box>
+
+            <Divider />
+
+            <BudgetEditor initiative={initiative} onSaved={handleChanged} />
 
             <Divider />
 
@@ -304,4 +358,6 @@ InitiativeDetail.propTypes = {
   initiative: PropTypes.object,
   /** Called when the dialog should close. */
   onClose: PropTypes.func.isRequired,
+  /** Called after a write, so the portfolio behind the dialog can refresh. */
+  onChanged: PropTypes.func.isRequired,
 };

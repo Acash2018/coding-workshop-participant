@@ -47,6 +47,9 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selected, setSelected] = useState(null);
+  // Bumped after any write so the portfolio reflects it. Budget consumption is
+  // derived from allocations, so staffing changes move dashboard figures too.
+  const [version, setVersion] = useState(0);
 
   useEffect(() => {
     let active = true;
@@ -57,6 +60,10 @@ export default function Dashboard() {
         if (active) {
           setRows(data);
           setError(null);
+          // Keep the open dialog pointed at the refreshed row, so an edited
+          // budget or new allocation is reflected without reopening it.
+          setSelected((current) =>
+            (current ? data.find((row) => row.id === current.id) ?? current : null));
         }
       })
       .catch((err) => active && setError(err.message))
@@ -64,7 +71,7 @@ export default function Dashboard() {
     return () => {
       active = false;
     };
-  }, [riskStatus, department]);
+  }, [riskStatus, department, version]);
 
   const departments = useMemo(
     () => [...new Set(rows.map((row) => row.department))].sort(),
@@ -193,7 +200,11 @@ export default function Dashboard() {
         )}
       </Box>
 
-      <InitiativeDetail initiative={selected} onClose={() => setSelected(null)} />
+      <InitiativeDetail
+        initiative={selected}
+        onClose={() => setSelected(null)}
+        onChanged={() => setVersion((n) => n + 1)}
+      />
 
       {summary.milestonesBehind > 0 && (
         <Typography variant="body2" sx={{ color: 'text.secondary' }}>

@@ -153,7 +153,16 @@ SELECT i.id,
            WHEN COALESCE(p.headcount, 0) = 0
                 AND i.status = 'ACTIVE'                     THEN 'AT_RISK'
            ELSE 'ON_TRACK'
-       END AS risk_status
+       END AS risk_status,
+       -- Absolute figures alongside the percentage: a caller editing the plan
+       -- needs the planned amount itself, and multiplying the percentage back
+       -- out loses precision and reads as zero when the plan is zero.
+       --
+       -- These sit at the end deliberately. CREATE OR REPLACE VIEW can only
+       -- append columns - inserting one mid-list fails with "cannot change
+       -- name of view column". New columns go here, not where they read best.
+       i.planned_budget,
+       COALESCE(b.total_consumed, 0) AS total_consumed
   FROM initiatives i
   LEFT JOIN ms     m ON m.initiative_id = i.id
   LEFT JOIN people p ON p.initiative_id = i.id
