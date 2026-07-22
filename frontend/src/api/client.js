@@ -70,7 +70,19 @@ async function request(path, options = {}) {
   if (response.status === 204) return null;
 
   const text = await response.text();
-  const parsed = text ? JSON.parse(text) : null;
+
+  // The body is not always JSON. A Lambda that fails to boot returns the plain
+  // string "Internal Server Error", and parsing that blindly throws
+  // "Unexpected token 'I'" - which hides the real failure behind a parse error.
+  let parsed = null;
+  try {
+    parsed = text ? JSON.parse(text) : null;
+  } catch {
+    if (!response.ok) {
+      throw new ApiError(response.status, text.trim() || `Request failed (${response.status})`);
+    }
+    throw new ApiError(response.status, 'Server returned a malformed response');
+  }
 
   if (!response.ok) {
     throw new ApiError(response.status, readError(parsed, response.status));

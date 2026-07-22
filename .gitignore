@@ -256,3 +256,5 @@ tfplan
 
 # Snyk Security Extension - AI Rules (auto-generated)
 .github/instructions/snyk_rules.instructions.md
+#do not include backend sensitive directories
+backend/*/[a-z]*/ 

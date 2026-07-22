@@ -48,7 +48,7 @@ export AWS_ENDPOINT_URL_S3="http://s3.localhost.localstack.cloud:4566"
 
 # ============================================================
 # STEP 1: Check and Start PostgreSQL
-# ============================================================
+# =========================================================f===
 echo -e "[1/5] Checking PostgreSQL..."
 
 if ! command -v psql &> /dev/null; then

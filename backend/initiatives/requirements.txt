@@ -1,3 +1,6 @@
 fastapi==0.115.6
 mangum==0.19.0
-psycopg[binary]==3.2.3
+# 3.2.3 (the version used by backend/_examples) publishes no cp313 wheel for
+# psycopg-binary, and the Lambda runtime is python3.13. 3.2.10 is the first
+# release with one.
+psycopg[binary]==3.2.13
