@@ -26,10 +26,10 @@ const ICONS = {
  * @param {{role: string, label: string, dense?: boolean}} props Component props.
  * @returns {JSX.Element} The rendered indicator.
  */
-export default function StatusChip({ role, label, dense = false }) {
+export default function StatusChip({ role, label, dense = false, icon = null }) {
   const theme = useTheme();
   const color = statusColor(role, theme.palette.mode);
-  const Icon = ICONS[role] ?? RemoveCircleOutlineIcon;
+  const Icon = icon ?? ICONS[role] ?? RemoveCircleOutlineIcon;
 
   return (
     <Box
@@ -60,4 +60,10 @@ StatusChip.propTypes = {
   label: PropTypes.string.isRequired,
   /** Renders at a smaller size for use inside table rows. */
   dense: PropTypes.bool,
+  /**
+   * Overrides the role's default icon. Needed where two states share a colour
+   * but not a meaning - an unstarted "on track" milestone is healthy, but a
+   * filled tick would read as "done".
+   */
+  icon: PropTypes.elementType,
 };

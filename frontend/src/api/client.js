@@ -130,6 +130,22 @@ export const initiativesApi = {
   list: (params = {}) => request(`/initiatives/${toQuery(params)}`),
 
   /**
+   * Lists everyone allocated to an initiative, past and present.
+   *
+   * @param {number} id Initiative id.
+   * @returns {Promise<Array<object>>} Allocations, current ones first.
+   */
+  team: (id) => request(`/initiatives/${id}/team`),
+
+  /**
+   * Lists an initiative's milestones with derived health.
+   *
+   * @param {number} id Initiative id.
+   * @returns {Promise<Array<object>>} Milestones in delivery order.
+   */
+  milestones: (id) => request(`/initiatives/${id}/milestones`),
+
+  /**
    * Creates an initiative.
    *
    * @param {object} payload The new initiative.

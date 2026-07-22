@@ -45,8 +45,24 @@ function describeDays(days, riskStatus) {
  * @param {{rows: Array<object>}} props Component props.
  * @returns {JSX.Element} The rendered collection.
  */
-export default function InitiativeTable({ rows }) {
+export default function InitiativeTable({ rows, onSelect }) {
   const isNarrow = useMediaQuery({ maxWidth: 899 });
+
+  // Rows are interactive, so they need to behave like buttons for keyboard and
+  // screen-reader users - a click handler alone is reachable only by mouse.
+  const interactive = (row) => ({
+    onClick: () => onSelect(row),
+    onKeyDown: (event) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        onSelect(row);
+      }
+    },
+    role: 'button',
+    tabIndex: 0,
+    'aria-label': `View details for ${row.name}`,
+    sx: { cursor: 'pointer' },
+  });
 
   if (rows.length === 0) {
     return (
@@ -62,7 +78,12 @@ export default function InitiativeTable({ rows }) {
     return (
       <Stack spacing={1.5}>
         {rows.map((row) => (
-          <Paper key={row.id} elevation={0} sx={{ p: 2 }}>
+          <Paper
+            key={row.id}
+            elevation={0}
+            {...interactive(row)}
+            sx={{ p: 2, cursor: 'pointer', '&:active': { opacity: 0.85 } }}
+          >
             <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 2, mb: 1 }}>
               <Box sx={{ minWidth: 0 }}>
                 {/* Wraps rather than truncating: the name is the row's primary
@@ -121,7 +142,7 @@ export default function InitiativeTable({ rows }) {
         </TableHead>
         <TableBody>
           {rows.map((row) => (
-            <TableRow key={row.id} hover>
+            <TableRow key={row.id} hover {...interactive(row)}>
               <TableCell>
                 <Typography variant="body2" sx={{ fontWeight: 600 }}>
                   {row.name}
@@ -182,4 +203,6 @@ export default function InitiativeTable({ rows }) {
 InitiativeTable.propTypes = {
   /** Rows from v_initiative_status. */
   rows: PropTypes.arrayOf(PropTypes.object).isRequired,
+  /** Called with the row when the reader opens an initiative. */
+  onSelect: PropTypes.func.isRequired,
 };

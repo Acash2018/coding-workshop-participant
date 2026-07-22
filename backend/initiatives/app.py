@@ -185,6 +185,88 @@ def get_initiative(initiative_id: int) -> Initiative:
     return Initiative(**row)
 
 
+@router.get("/{initiative_id}/team", tags=["initiatives"])
+def get_team(initiative_id: int) -> list[dict]:
+    """
+    Lists everyone allocated to an initiative, past and present.
+
+    Allocations that have ended are included rather than filtered out - they
+    explain historic budget consumption, and hiding them makes a stalled
+    initiative look like it never had anyone on it. `active_today` distinguishes
+    current staffing from past.
+
+    Args:
+        initiative_id: Primary key of the initiative.
+
+    Returns:
+        list[dict]: One row per allocation, current allocations first.
+    """
+    return db.query_all(
+        """
+        SELECT a.id,
+               e.id AS employee_id,
+               e.full_name,
+               e.department,
+               e.employment_type,
+               e.weekly_capacity_hours,
+               a.allocation_percent,
+               a.role_on_initiative,
+               a.start_date,
+               a.end_date,
+               (a.period @> current_date) AS active_today,
+               ROUND(a.allocation_percent / 100.0 * e.weekly_capacity_hours, 1)
+                   AS hours_per_week
+          FROM allocations a
+          JOIN employees e ON e.id = a.employee_id
+         WHERE a.initiative_id = %(id)s
+         ORDER BY (a.period @> current_date) DESC, e.full_name
+        """,
+        {"id": initiative_id},
+    )
+
+
+@router.get("/{initiative_id}/milestones", tags=["initiatives"])
+def get_milestones(initiative_id: int) -> list[dict]:
+    """
+    Lists an initiative's milestones with derived health and slippage.
+
+    Reads v_milestone_health so BEHIND / AT_RISK are computed in one place
+    rather than re-derived from planned_date in the UI.
+
+    Args:
+        initiative_id: Primary key of the initiative.
+
+    Returns:
+        list[dict]: Milestones in delivery order.
+    """
+    return db.query_all(
+        """
+        SELECT m.id,
+               m.name,
+               m.sequence_no,
+               m.status,
+               m.health,
+               m.planned_date,
+               m.actual_date,
+               m.days_until_due,
+               -- Days late is only meaningful once a milestone has landed.
+               CASE WHEN m.actual_date IS NOT NULL
+                    THEN m.actual_date - m.planned_date END AS days_variance,
+               COALESCE(
+                   (SELECT array_agg(p.name ORDER BY p.name)
+                      FROM milestone_dependencies d
+                      JOIN milestones p ON p.id = d.depends_on_milestone_id
+                     WHERE d.milestone_id = m.id),
+                   ARRAY[]::text[]
+               ) AS depends_on
+          FROM v_milestone_health m
+         WHERE m.initiative_id = %(id)s
+         ORDER BY m.sequence_no, m.planned_date
+        """,
+        {"id": initiative_id},
+    )
+
+
 @router.post(
     "/",
     response_model=Initiative,

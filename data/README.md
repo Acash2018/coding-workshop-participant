@@ -94,14 +94,19 @@ The server itself is **not** provisioned by this project.
 `localhost:5432`, and sets the `postgres` superuser password to `postgres123`.
 That runs once, as part of workshop environment setup.
 
-What this project adds is the database contents:
+What this project adds is the database contents. Apply them to the **`postgres`**
+database — not a new one:
 
 ```sh
 export PGPASSWORD=postgres123
-psql -h localhost -U postgres -c "CREATE DATABASE acme_dev;"
-psql -h localhost -U postgres -d acme_dev -v ON_ERROR_STOP=1 -f data/schema.sql
-psql -h localhost -U postgres -d acme_dev -v ON_ERROR_STOP=1 -f data/views.sql
+psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f data/schema.sql
+psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f data/views.sql
 ```
+
+The database name is not a free choice locally. Terraform hardcodes
+`POSTGRES_NAME = "postgres"` for LocalStack (see the table below), so a schema
+applied to any other database is invisible to the running Lambda — `psql` and
+local tests find it, the deployed function does not.
 
 `ON_ERROR_STOP=1` matters here — without it `psql` continues past a failed
 statement and reports success while leaving a half-built schema behind.
@@ -158,16 +163,13 @@ ships Lambda code only, and every `psql` reference under `bin/` concerns the
 database, and every endpoint fails on a missing table. Applying the schema to
 Aurora is a manual step — or wants a migration job — and it has not been done.
 
-**The local Lambda's database name is fixed to `postgres`.** The table above is
-not configurable per project: `POSTGRES_NAME` is hardcoded to `postgres` for
-LocalStack. A schema applied only to `acme_dev` is invisible to a Lambda running
-in LocalStack, even though `psql` and the local test suite find it fine. Apply
-the schema to **both** databases, or use `postgres` throughout:
-
-```sh
-psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f data/schema.sql
-psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f data/views.sql
-```
+**The local Lambda's database name is fixed to `postgres`.** `POSTGRES_NAME` is
+hardcoded for LocalStack and is not configurable per project, which is why the
+setup above targets `postgres` directly. Creating a purpose-named database such
+as `acme_dev` looks tidier and silently breaks the deployed function: `psql` and
+local tests read the new database while the Lambda keeps reading `postgres`.
+Cloud is unaffected — there the name comes from the Aurora cluster
+(`codingworkshop`).
 
 ---
 

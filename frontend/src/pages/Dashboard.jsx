@@ -6,6 +6,7 @@ import initiativesApi from '../api/client';
 import StatTile from '../components/StatTile';
 import RiskDistribution from '../components/RiskDistribution';
 import InitiativeTable from '../components/InitiativeTable';
+import InitiativeDetail from '../components/InitiativeDetail';
 
 const RISK_OPTIONS = [
   { value: '', label: 'All risk levels' },
@@ -45,6 +46,7 @@ export default function Dashboard() {
   const [riskStatus, setRiskStatus] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [selected, setSelected] = useState(null);
 
   useEffect(() => {
     let active = true;
@@ -184,8 +186,14 @@ export default function Dashboard() {
         <Typography variant="subtitle2" sx={{ color: 'text.secondary', mb: 1.5 }}>
           ALL INITIATIVES
         </Typography>
-        {loading ? <Skeleton variant="rounded" height={240} /> : <InitiativeTable rows={rows} />}
+        {loading ? (
+          <Skeleton variant="rounded" height={240} />
+        ) : (
+          <InitiativeTable rows={rows} onSelect={setSelected} />
+        )}
       </Box>
+
+      <InitiativeDetail initiative={selected} onClose={() => setSelected(null)} />
 
       {summary.milestonesBehind > 0 && (
         <Typography variant="body2" sx={{ color: 'text.secondary' }}>
