@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
 import PropTypes from 'prop-types';
 import {
-  Alert, Box, Button, MenuItem, Paper, Stack, TextField, Typography,
+  Alert, Box, Button, Divider, MenuItem, Paper, Stack, TextField, Typography,
 } from '@mui/material';
+import PersonAddIcon from '@mui/icons-material/PersonAddAlt1Outlined';
 import initiativesApi from '../api/client';
+import NewEmployeeDialog from './NewEmployeeDialog';
 
 /** Default allocation window: today through the end of next quarter-ish. */
 const today = () => new Date().toISOString().slice(0, 10);
@@ -24,7 +26,7 @@ const today = () => new Date().toISOString().slice(0, 10);
  * @param {{initiativeId: number, onAdded: Function}} props Component props.
  * @returns {JSX.Element} The rendered form.
  */
-export default function AddAllocationForm({ initiativeId, onAdded }) {
+export default function AddAllocationForm({ initiativeId, onAdded, refreshKey }) {
   const [candidates, setCandidates] = useState([]);
   const [employeeId, setEmployeeId] = useState('');
   const [percent, setPercent] = useState('50');
@@ -33,7 +35,13 @@ export default function AddAllocationForm({ initiativeId, onAdded }) {
   const [role, setRole] = useState('');
   const [error, setError] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [addingEmployee, setAddingEmployee] = useState(false);
 
+  // refreshKey is in the dependency list on purpose. Availability is a function
+  // of every allocation in the system, so removing or editing someone's
+  // commitment frees capacity that this list must reflect - without it the
+  // dropdown keeps showing people as fully committed after you have just
+  // released them.
   useEffect(() => {
     if (!startDate) return undefined;
     let active = true;
@@ -44,7 +52,7 @@ export default function AddAllocationForm({ initiativeId, onAdded }) {
     return () => {
       active = false;
     };
-  }, [initiativeId, startDate, endDate]);
+  }, [initiativeId, startDate, endDate, refreshKey]);
 
   const selected = candidates.find((row) => row.id === Number(employeeId));
   const requested = Number(percent);
@@ -103,6 +111,20 @@ export default function AddAllocationForm({ initiativeId, onAdded }) {
             sx={{ flex: 2, minWidth: 200 }}
             helperText={selected ? `${selected.available_hours}h/week free in this window` : ' '}
           >
+            <MenuItem
+              value=""
+              onClick={(event) => {
+                // Not a selectable value - it opens the create dialog. Stop the
+                // Select from committing an empty employee id on the way out.
+                event.preventDefault();
+                event.stopPropagation();
+                setAddingEmployee(true);
+              }}
+            >
+              <PersonAddIcon fontSize="small" sx={{ mr: 1 }} />
+              Add a new employee…
+            </MenuItem>
+            <Divider />
             {candidates.map((row) => (
               <MenuItem key={row.id} value={row.id} disabled={Number(row.available_percent) <= 0}>
                 {row.full_name}
@@ -181,6 +203,17 @@ export default function AddAllocationForm({ initiativeId, onAdded }) {
           </Button>
         </Box>
       </Stack>
+
+      <NewEmployeeDialog
+        open={addingEmployee}
+        onClose={() => setAddingEmployee(false)}
+        onCreated={(employee) => {
+          // Refetch so the new person arrives with their capacity calculated
+          // for the current window, then pre-select them.
+          onAdded();
+          setEmployeeId(String(employee.id));
+        }}
+      />
     </Paper>
   );
 }
@@ -190,4 +223,6 @@ AddAllocationForm.propTypes = {
   initiativeId: PropTypes.number.isRequired,
   /** Called after a successful allocation so the parent can refresh. */
   onAdded: PropTypes.func.isRequired,
+  /** Changes whenever an allocation elsewhere changes, forcing a refetch. */
+  refreshKey: PropTypes.number,
 };

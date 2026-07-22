@@ -167,6 +167,21 @@ export const initiativesApi = {
     request(`/initiatives/${id}/allocations`, { method: 'POST', body: payload }),
 
   /**
+   * Changes an existing commitment's percentage, period or role.
+   *
+   * @param {number} id Initiative id.
+   * @param {number} allocationId Allocation to change.
+   * @param {object} payload Fields to change.
+   * @returns {Promise<object>} The updated allocation.
+   * @throws {ApiError} 409 when the change would breach the 100% rule.
+   */
+  updateAllocation: (id, allocationId, payload) =>
+    request(`/initiatives/${id}/allocations/${allocationId}`, {
+      method: 'PATCH',
+      body: payload,
+    }),
+
+  /**
    * Removes an employee's commitment to an initiative.
    *
    * @param {number} id Initiative id.
@@ -175,6 +190,16 @@ export const initiativesApi = {
    */
   removeAllocation: (id, allocationId) =>
     request(`/initiatives/${id}/allocations/${allocationId}`, { method: 'DELETE' }),
+
+  /**
+   * Adds a person to the resource pool.
+   *
+   * @param {object} payload The new employee.
+   * @returns {Promise<object>} The stored record.
+   * @throws {ApiError} 409 on a duplicate employee number or email.
+   */
+  createEmployee: (payload) =>
+    request('/initiatives/employees', { method: 'POST', body: payload }),
 
   /**
    * Creates an initiative.

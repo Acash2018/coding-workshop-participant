@@ -256,5 +256,18 @@ tfplan
 
 # Snyk Security Extension - AI Rules (auto-generated)
 .github/instructions/snyk_rules.instructions.md
-#do not include backend sensitive directories
-backend/*/[a-z]*/ 
+# Vendored Python dependencies.
+#
+# bin/start-dev.sh installs each service's requirements INTO its own folder,
+# because LocalStack runs Lambdas in hot-reload mode: it mounts the source
+# directory directly and never reads Terraform's zip. That drops ~500 files
+# next to the source, so the packages are ignored - but the service's own
+# subpackages must be re-included by name, or the entire backend silently
+# disappears from the repo while `git status` stays clean.
+backend/*/[a-z]*/
+!backend/*/core/
+!backend/*/routers/
+!backend/*/schemas/
+!backend/*/tests/
+backend/*/typing_extensions.py
+backend/*/.pip_installed

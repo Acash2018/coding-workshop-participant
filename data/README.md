@@ -411,19 +411,71 @@ flowchart LR
 `v_allocation_cost` and `v_milestone_health` exist to be composed into the
 others; the three views in the right-hand group are what the API should query.
 
-### Budget: consumed versus committed
+### Budget: how "consumed to date" is calculated
 
-`v_initiative_budget` reports both:
+Nothing about spend is entered by hand. It is derived entirely from **who is
+allocated, at what percentage, for how long** — so budget consumption cannot
+drift away from staffing. Adding a person to an initiative immediately moves its
+consumed figure.
 
-- **`total_consumed`** — labour for weeks that have actually elapsed, plus
-  incurred non-labour costs.
-- **`total_committed`** — labour across the *full* allocation window.
+**The formula, per allocation:**
+
+```
+labour = allocation_percent / 100          ← share of that person's week
+       × weekly_capacity_hours             ← their week (40 by default)
+       × hourly_rate                       ← $100/hr by default
+       × elapsed_weeks                     ← weeks worked so far
+```
+
+`elapsed_weeks` counts only time that has actually passed. It runs from the
+allocation's start to **today or its end date, whichever is earlier**, and is
+floored at zero so an allocation starting next month contributes nothing:
+
+```sql
+GREATEST((LEAST(COALESCE(end_date, current_date), current_date)
+          - start_date + 1) / 7.0, 0)
+```
+
+An initiative's total is the sum across its allocations, plus any non-labour
+costs already incurred:
+
+```
+total_consumed = Σ labour  +  Σ initiative_costs WHERE incurred_on <= today
+```
+
+**Worked example — CC-2026 on 22 July 2026:**
+
+Both allocations run 5 Jan → 30 Nov 2026, so 199 days have elapsed
+(≈ 28.4286 weeks).
+
+| Person | % | Hours/wk | Rate | Weeks | Labour |
+| ------ | -: | -: | -: | -: | -: |
+| Dana Reyes | 60 | 40 | $100 | 28.4286 | $68,228.64 |
+| Sam Okafor | 100 | 40 | $100 | 28.4286 | $113,714.40 |
+| | | | | **Labour** | **$181,943.04** |
+| Card tokenisation SDK | | | | **Other** | **$65,000.00** |
+| | | | | **Total consumed** | **$246,943.04** |
+
+Against a $900,000 plan that is **27.4%**.
+
+### Consumed versus committed
+
+`v_initiative_budget` reports two different figures, and the distinction matters:
+
+- **`total_consumed`** — weeks that have *elapsed*. What has been spent.
+- **`total_committed`** — the *full* allocation window, using
+  `committed_weeks` instead. What will be spent if nothing changes.
 
 `forecast_overrun` derives from the second, so a project manager sees an overrun
-coming rather than discovering it afterwards. Labour cost is
-`allocation_percent × weekly_capacity_hours × hourly_rate × weeks`, defaulting to
-$100/hr per the brief but stored per-employee so a rate change needs no
-migration.
+coming rather than discovering it afterwards. ATM-2026 is the example in the
+fixture: committed allocations project past its budget before it ends.
+
+Two consequences worth knowing:
+
+- **An initiative with no allocations reads as $0 spent**, however much it
+  actually cost. The `v_employee_allocation` view and the UI both flag this.
+- **Rates are stored per employee**, defaulting to the brief's $100/hr flat
+  estimate. Differentiating rates later needs no migration, only data.
 
 ### Dependency chains
 

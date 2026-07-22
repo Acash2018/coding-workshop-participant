@@ -7,10 +7,10 @@ import {
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked';
-import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlined';
 import initiativesApi from '../api/client';
 import StatusChip from './StatusChip';
 import AddAllocationForm from './AddAllocationForm';
+import AllocationRow from './AllocationRow';
 import BudgetEditor from './BudgetEditor';
 import { milestoneRoles, riskRoles } from '../theme/vizTokens';
 
@@ -93,23 +93,6 @@ export default function InitiativeDetail({ initiative, onClose, onChanged }) {
   const handleChanged = () => {
     setVersion((n) => n + 1);
     onChanged();
-  };
-
-  /**
-   * Removes an allocation after confirming intent.
-   *
-   * @param {object} row The allocation to remove.
-   * @returns {Promise<void>} Resolves once the request settles.
-   */
-  const handleRemove = async (row) => {
-    // eslint-disable-next-line no-alert
-    if (!window.confirm(`Remove ${row.full_name} from this initiative?`)) return;
-    try {
-      await initiativesApi.removeAllocation(initiative.id, row.id);
-      handleChanged();
-    } catch (err) {
-      setError(err.message);
-    }
   };
 
   if (!initiative) return null;
@@ -212,42 +195,12 @@ export default function InitiativeDetail({ initiative, onClose, onChanged }) {
                   </TableHead>
                   <TableBody>
                     {[...current, ...past].map((row) => (
-                      <TableRow key={row.id}>
-                        <TableCell>
-                          <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                            {row.full_name}
-                          </Typography>
-                          <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                            {row.employment_type.replace('_', ' ').toLowerCase()}
-                          </Typography>
-                        </TableCell>
-                        <TableCell sx={{ color: 'text.secondary' }}>
-                          {row.role_on_initiative ?? '—'}
-                        </TableCell>
-                        <TableCell align="right" sx={{ fontVariantNumeric: 'tabular-nums' }}>
-                          {Number(row.allocation_percent).toFixed(0)}%
-                          <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>
-                            {row.hours_per_week}h/week
-                          </Typography>
-                        </TableCell>
-                        <TableCell sx={{ whiteSpace: 'nowrap' }}>
-                          <Typography variant="body2">
-                            {formatDate(row.start_date)} – {row.end_date ? formatDate(row.end_date) : 'open'}
-                          </Typography>
-                          {!row.active_today && (
-                            <Chip label="ended" size="small" variant="outlined" sx={{ mt: 0.5 }} />
-                          )}
-                        </TableCell>
-                        <TableCell align="right">
-                          <IconButton
-                            size="small"
-                            aria-label={`Remove ${row.full_name} from this initiative`}
-                            onClick={() => handleRemove(row)}
-                          >
-                            <DeleteOutlineIcon fontSize="small" />
-                          </IconButton>
-                        </TableCell>
-                      </TableRow>
+                      <AllocationRow
+                        key={row.id}
+                        row={row}
+                        initiativeId={initiative.id}
+                        onChanged={handleChanged}
+                      />
                     ))}
                   </TableBody>
                 </Table>
@@ -255,7 +208,11 @@ export default function InitiativeDetail({ initiative, onClose, onChanged }) {
               )}
 
               <Box sx={{ mt: 2 }}>
-                <AddAllocationForm initiativeId={initiative.id} onAdded={handleChanged} />
+                <AddAllocationForm
+                  initiativeId={initiative.id}
+                  onAdded={handleChanged}
+                  refreshKey={version}
+                />
               </Box>
             </Box>
 
