@@ -7,7 +7,7 @@ are derived in database views so every consumer sees the same judgement.
 
 from fastapi import APIRouter, Query
 
-from core import database as db
+from core import database as db, security
 from schemas import InitiativeStatusRow
 
 router = APIRouter(tags=["reporting"])
@@ -29,7 +29,11 @@ def health() -> dict[str, str]:
     }
 
 
-@router.get("/status", response_model=list[InitiativeStatusRow])
+@router.get(
+    "/status",
+    response_model=list[InitiativeStatusRow],
+    dependencies=[security.RequireAuth],
+)
 def portfolio_status(
     risk_status: str | None = Query(None, description="Filter by computed risk"),
     department: str | None = Query(None),

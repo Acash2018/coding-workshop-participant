@@ -9,9 +9,9 @@ to land first.
 
 from fastapi import APIRouter
 
-from core import database as db
+from core import database as db, security
 
-router = APIRouter(tags=["milestones"])
+router = APIRouter(tags=["milestones"], dependencies=[security.RequireAuth])
 
 
 @router.get("/{initiative_id}/milestones")

@@ -12,10 +12,10 @@ affordable.
 
 from fastapi import APIRouter, HTTPException, Query, status
 
-from core import database as db
+from core import database as db, security
 from schemas import Employee, EmployeeCreate
 
-router = APIRouter(tags=["employees"])
+router = APIRouter(tags=["employees"], dependencies=[security.RequireAuth])
 
 COLUMNS = """
     id, employee_number, full_name, email, department, job_title,
@@ -50,7 +50,10 @@ def list_employees(
 
 
 @router.post("/employees", response_model=Employee, status_code=status.HTTP_201_CREATED)
-def create_employee(payload: EmployeeCreate) -> dict:
+def create_employee(
+    payload: EmployeeCreate,
+    _auth: dict = security.require_roles(*security.MANAGERS),
+) -> dict:
     """
     Adds a person to the resource pool.
 

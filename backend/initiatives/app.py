@@ -17,7 +17,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from core import database as db
-from routers import allocations, employees, initiatives, milestones, reporting
+from routers import (
+    allocations,
+    auth,
+    employees,
+    initiatives,
+    milestones,
+    reporting,
+)
 from schemas import ErrorResponse
 
 logger = logging.getLogger()
@@ -48,6 +55,7 @@ app.add_middleware(
 # captured by "/{initiative_id}" and fail as a 422 rather than reaching their
 # handlers. The initiatives router goes last because its patterns are the
 # greediest.
+app.include_router(auth.router)
 app.include_router(reporting.router)
 app.include_router(employees.router)
 app.include_router(milestones.router)

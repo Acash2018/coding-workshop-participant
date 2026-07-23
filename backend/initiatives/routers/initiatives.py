@@ -8,10 +8,12 @@ deliverables hang off it and live in their own routers.
 
 from fastapi import APIRouter, HTTPException, Query, Response, status
 
-from core import database as db
+from core import database as db, security
 from schemas import Initiative, InitiativeCreate, InitiativeUpdate, Page
 
-router = APIRouter(tags=["initiatives"])
+# Router-level dependency: every route here needs a signed-in caller. Writes
+# layer a role check on top; reads are open to any authenticated user.
+router = APIRouter(tags=["initiatives"], dependencies=[security.RequireAuth])
 
 # The stored columns, as opposed to the derived ones in v_initiative_status.
 COLUMNS = """
@@ -76,7 +78,10 @@ def list_initiatives(
 
 
 @router.post("/", response_model=Initiative, status_code=status.HTTP_201_CREATED)
-def create_initiative(payload: InitiativeCreate) -> Initiative:
+def create_initiative(
+    payload: InitiativeCreate,
+    _auth: dict = security.require_roles(*security.MANAGERS),
+) -> Initiative:
     """
     Creates an initiative.
 
@@ -127,7 +132,11 @@ def get_initiative(initiative_id: int) -> Initiative:
 
 
 @router.patch("/{initiative_id}", response_model=Initiative)
-def update_initiative(initiative_id: int, payload: InitiativeUpdate) -> Initiative:
+def update_initiative(
+    initiative_id: int,
+    payload: InitiativeUpdate,
+    _auth: dict = security.require_roles(*security.MANAGERS),
+) -> Initiative:
     """
     Applies a partial update. Fields omitted from the body are left unchanged.
 
@@ -156,7 +165,10 @@ def update_initiative(initiative_id: int, payload: InitiativeUpdate) -> Initiati
 
 
 @router.delete("/{initiative_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_initiative(initiative_id: int) -> Response:
+def delete_initiative(
+    initiative_id: int,
+    _auth: dict = security.require_roles(*security.MANAGERS),
+) -> Response:
     """
     Deletes an initiative and, by cascade, its milestones, allocations and costs.
 

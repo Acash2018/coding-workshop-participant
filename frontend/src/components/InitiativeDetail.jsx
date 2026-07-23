@@ -8,6 +8,7 @@ import {
 import CloseIcon from '@mui/icons-material/Close';
 import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked';
 import initiativesApi from '../api/client';
+import { useAuth } from '../auth/AuthContext';
 import StatusChip from './StatusChip';
 import AddAllocationForm from './AddAllocationForm';
 import AllocationRow from './AllocationRow';
@@ -51,6 +52,7 @@ function describeVariance(variance) {
  */
 export default function InitiativeDetail({ initiative, onClose, onChanged }) {
   const isNarrow = useMediaQuery({ maxWidth: 899 });
+  const { canManage, canStaff } = useAuth();
   const [team, setTeam] = useState([]);
   const [milestones, setMilestones] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -200,6 +202,7 @@ export default function InitiativeDetail({ initiative, onClose, onChanged }) {
                         row={row}
                         initiativeId={initiative.id}
                         onChanged={handleChanged}
+                        editable={canStaff}
                       />
                     ))}
                   </TableBody>
@@ -207,18 +210,27 @@ export default function InitiativeDetail({ initiative, onClose, onChanged }) {
                 </Box>
               )}
 
-              <Box sx={{ mt: 2 }}>
-                <AddAllocationForm
-                  initiativeId={initiative.id}
-                  onAdded={handleChanged}
-                  refreshKey={version}
-                />
-              </Box>
+              {/* Staffing controls are shown only to roles that may use them.
+                  The backend enforces this regardless; hiding them avoids
+                  offering a button that would 403. */}
+              {canStaff && (
+                <Box sx={{ mt: 2 }}>
+                  <AddAllocationForm
+                    initiativeId={initiative.id}
+                    onAdded={handleChanged}
+                    refreshKey={version}
+                  />
+                </Box>
+              )}
             </Box>
 
             <Divider />
 
-            <BudgetEditor initiative={initiative} onSaved={handleChanged} />
+            <BudgetEditor
+              initiative={initiative}
+              onSaved={handleChanged}
+              editable={canManage}
+            />
 
             <Divider />
 

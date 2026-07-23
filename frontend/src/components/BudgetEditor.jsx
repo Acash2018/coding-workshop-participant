@@ -29,7 +29,7 @@ function money(value) {
  * @param {{initiative: object, onSaved: Function}} props Component props.
  * @returns {JSX.Element} The rendered panel.
  */
-export default function BudgetEditor({ initiative, onSaved }) {
+export default function BudgetEditor({ initiative, onSaved, editable = true }) {
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState(String(initiative.planned_budget ?? ''));
   const [error, setError] = useState(null);
@@ -68,7 +68,7 @@ export default function BudgetEditor({ initiative, onSaved }) {
         <Typography variant="subtitle2" sx={{ color: 'text.secondary' }}>
           BUDGET
         </Typography>
-        {!editing && (
+        {!editing && editable && (
           <Tooltip title="Edit planned budget">
             <IconButton size="small" onClick={() => setEditing(true)} aria-label="Edit planned budget">
               <EditOutlinedIcon fontSize="small" />
@@ -152,4 +152,6 @@ BudgetEditor.propTypes = {
   initiative: PropTypes.object.isRequired,
   /** Called after a successful save so the parent can refresh. */
   onSaved: PropTypes.func.isRequired,
+  /** Whether to show the edit control. */
+  editable: PropTypes.bool,
 };

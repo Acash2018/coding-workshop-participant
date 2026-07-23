@@ -33,7 +33,7 @@ function formatDate(iso) {
  * @param {{row: object, initiativeId: number, onChanged: Function}} props Props.
  * @returns {JSX.Element} The rendered row.
  */
-export default function AllocationRow({ row, initiativeId, onChanged }) {
+export default function AllocationRow({ row, initiativeId, onChanged, editable = true }) {
   const [editing, setEditing] = useState(false);
   const [percent, setPercent] = useState(String(Number(row.allocation_percent)));
   const [startDate, setStartDate] = useState(row.start_date ?? '');
@@ -169,24 +169,26 @@ export default function AllocationRow({ row, initiativeId, onChanged }) {
         {error && <Alert severity="error" sx={{ mt: 1 }}>{error}</Alert>}
       </TableCell>
       <TableCell align="right">
-        <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-          <Tooltip title="Edit commitment and dates">
-            <IconButton
-              size="small" onClick={() => setEditing(true)}
-              aria-label={`Edit ${row.full_name}'s commitment`}
-            >
-              <EditOutlinedIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
-          <Tooltip title="Remove from initiative">
-            <IconButton
-              size="small" onClick={handleRemove}
-              aria-label={`Remove ${row.full_name} from this initiative`}
-            >
-              <DeleteOutlineIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
-        </Box>
+        {editable && (
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <Tooltip title="Edit commitment and dates">
+              <IconButton
+                size="small" onClick={() => setEditing(true)}
+                aria-label={`Edit ${row.full_name}'s commitment`}
+              >
+                <EditOutlinedIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Remove from initiative">
+              <IconButton
+                size="small" onClick={handleRemove}
+                aria-label={`Remove ${row.full_name} from this initiative`}
+              >
+                <DeleteOutlineIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          </Box>
+        )}
       </TableCell>
     </TableRow>
   );
@@ -199,4 +201,6 @@ AllocationRow.propTypes = {
   initiativeId: PropTypes.number.isRequired,
   /** Called after a successful write so capacity everywhere refreshes. */
   onChanged: PropTypes.func.isRequired,
+  /** Whether to show the edit and remove controls. */
+  editable: PropTypes.bool,
 };

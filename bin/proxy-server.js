@@ -101,7 +101,11 @@ const server = http.createServer((req, res) => {
       'accept': headers.accept || 'application/json',
       'content-type': headers['content-type'] || 'application/json',
       'user-agent': headers['user-agent'] || 'proxy-server',
-      'host': target.host
+      'host': target.host,
+      // Forward the bearer token. This is an allowlist, so anything not named
+      // here is dropped - omitting Authorization silently breaks every
+      // authenticated request while login itself still works.
+      ...(headers.authorization ? { authorization: headers.authorization } : {})
     }
   };
 

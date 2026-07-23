@@ -10,6 +10,43 @@
 
 const BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001';
 
+const TOKEN_KEY = 'acme.auth.token';
+
+/**
+ * Reads the stored bearer token.
+ *
+ * @returns {string|null} The token, or null when signed out.
+ */
+export function getToken() {
+  return localStorage.getItem(TOKEN_KEY);
+}
+
+/**
+ * Stores or clears the bearer token.
+ *
+ * @param {string|null} token The token to keep, or null to sign out.
+ * @returns {void}
+ */
+export function setToken(token) {
+  if (token) localStorage.setItem(TOKEN_KEY, token);
+  else localStorage.removeItem(TOKEN_KEY);
+}
+
+// Called when a request comes back 401, so the app can drop to the login
+// screen from anywhere - a component deep in the tree does not have to know
+// how to react to an expired token.
+let onUnauthorized = () => {};
+
+/**
+ * Registers the handler invoked when any request is rejected as unauthorized.
+ *
+ * @param {Function} handler Called with no arguments on a 401.
+ * @returns {void}
+ */
+export function setUnauthorizedHandler(handler) {
+  onUnauthorized = handler;
+}
+
 /**
  * Error carrying the HTTP status alongside the server's explanation.
  */
@@ -60,12 +97,24 @@ function readError(body, statusCode) {
  */
 async function request(path, options = {}) {
   const { body, ...rest } = options;
+  const token = getToken();
 
   const response = await fetch(`${BASE_URL}/api${path}`, {
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
     ...rest,
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
   });
+
+  // An expired or rejected token invalidates the whole session, not just this
+  // call - clear it and let the app fall back to the login screen. Login
+  // itself is exempt: a 401 there is a wrong password, not a dead session.
+  if (response.status === 401 && !path.startsWith('/initiatives/auth/login')) {
+    setToken(null);
+    onUnauthorized();
+  }
 
   if (response.status === 204) return null;
 
@@ -225,6 +274,23 @@ export const initiativesApi = {
    * @returns {Promise<null>} Resolves once removed.
    */
   remove: (id) => request(`/initiatives/${id}`, { method: 'DELETE' }),
+
+  /**
+   * Exchanges credentials for an access token.
+   *
+   * @param {string} email The account email.
+   * @param {string} password The account password.
+   * @returns {Promise<object>} Token payload with role and display name.
+   */
+  login: (email, password) =>
+    request('/initiatives/auth/login', { method: 'POST', body: { email, password } }),
+
+  /**
+   * Returns the caller described by the stored token, validating it.
+   *
+   * @returns {Promise<object>} The caller's identity and role.
+   */
+  me: () => request('/initiatives/auth/me'),
 
   /**
    * Checks service and database reachability.

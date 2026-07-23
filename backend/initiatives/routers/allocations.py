@@ -13,10 +13,10 @@ from datetime import date
 
 from fastapi import APIRouter, HTTPException, Query, Response, status
 
-from core import database as db
+from core import database as db, security
 from schemas import AllocationCreate, AllocationUpdate
 
-router = APIRouter(tags=["allocations"])
+router = APIRouter(tags=["allocations"], dependencies=[security.RequireAuth])
 
 
 @router.get("/{initiative_id}/team")
@@ -135,7 +135,11 @@ def get_candidates(
 
 
 @router.post("/{initiative_id}/allocations", status_code=status.HTTP_201_CREATED)
-def add_allocation(initiative_id: int, payload: AllocationCreate) -> dict:
+def add_allocation(
+    initiative_id: int,
+    payload: AllocationCreate,
+    _auth: dict = security.require_roles(*security.STAFFERS),
+) -> dict:
     """
     Commits an employee to an initiative at a percentage of their week.
 
@@ -186,6 +190,7 @@ def update_allocation(
     initiative_id: int,
     allocation_id: int,
     payload: AllocationUpdate,
+    _auth: dict = security.require_roles(*security.STAFFERS),
 ) -> dict:
     """
     Changes an existing commitment's percentage, period or role.
@@ -234,7 +239,11 @@ def update_allocation(
     "/{initiative_id}/allocations/{allocation_id}",
     status_code=status.HTTP_204_NO_CONTENT,
 )
-def remove_allocation(initiative_id: int, allocation_id: int) -> Response:
+def remove_allocation(
+    initiative_id: int,
+    allocation_id: int,
+    _auth: dict = security.require_roles(*security.STAFFERS),
+) -> Response:
     """
     Removes an employee's commitment to an initiative.
 

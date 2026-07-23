@@ -265,6 +265,11 @@ tfplan
 # subpackages must be re-included by name, or the entire backend silently
 # disappears from the repo while `git status` stays clean.
 backend/*/[a-z]*/
+# Some distributions install a dist-info folder that keeps the package's
+# original casing (PyJWT -> PyJWT-*.dist-info), which the lowercase glob above
+# misses. Match those explicitly so an uppercase-named dependency cannot slip
+# into the repo.
+backend/*/[A-Z]*.dist-info/
 !backend/*/core/
 !backend/*/routers/
 !backend/*/schemas/
