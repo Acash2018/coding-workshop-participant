@@ -7,8 +7,8 @@ import PersonAddIcon from '@mui/icons-material/PersonAddAlt1Outlined';
 import initiativesApi from '../api/client';
 import NewEmployeeDialog from './NewEmployeeDialog';
 
-/** Default allocation window: today through the end of next quarter-ish. */
-const today = () => new Date().toISOString().slice(0, 10);
+/** The browser's today, used only until the server's date is known. */
+const browserToday = () => new Date().toISOString().slice(0, 10);
 
 /**
  * Form for committing an employee to an initiative.
@@ -30,12 +30,26 @@ export default function AddAllocationForm({ initiativeId, onAdded, refreshKey })
   const [candidates, setCandidates] = useState([]);
   const [employeeId, setEmployeeId] = useState('');
   const [percent, setPercent] = useState('50');
-  const [startDate, setStartDate] = useState(today);
+  const [startDate, setStartDate] = useState(browserToday);
   const [endDate, setEndDate] = useState('');
   const [role, setRole] = useState('');
   const [error, setError] = useState(null);
   const [saving, setSaving] = useState(false);
   const [addingEmployee, setAddingEmployee] = useState(false);
+
+  // Align the default start with the database's today. The browser clock can
+  // lead the server's across a timezone boundary, and a start date a day in the
+  // "future" per the server would leave the new allocation uncounted in today's
+  // FTE - exactly the "nothing happened" surprise this avoids.
+  useEffect(() => {
+    let active = true;
+    initiativesApi.health()
+      .then((info) => {
+        if (active && info.server_date) setStartDate(info.server_date);
+      })
+      .catch(() => {});
+    return () => { active = false; };
+  }, []);
 
   // refreshKey is in the dependency list on purpose. Availability is a function
   // of every allocation in the system, so removing or editing someone's

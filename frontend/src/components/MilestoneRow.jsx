@@ -35,13 +35,19 @@ function formatDate(iso) {
 /**
  * Describes how late or early a milestone landed.
  *
+ * Slippage is shown in weeks once it reaches a week, matching the rest of the
+ * app; below that it stays in days, where "3d early" reads far better than
+ * "0.4w early".
+ *
  * @param {number|null} variance Days between actual and planned date.
  * @returns {string} A short phrase, empty when not yet delivered.
  */
 function describeVariance(variance) {
   if (variance === null || variance === undefined) return '';
   if (variance === 0) return 'on the day';
-  return variance > 0 ? `${variance}d late` : `${Math.abs(variance)}d early`;
+  const magnitude = Math.abs(variance);
+  const amount = magnitude >= 7 ? `${Math.round(magnitude / 7)}w` : `${magnitude}d`;
+  return variance > 0 ? `${amount} late` : `${amount} early`;
 }
 
 /**

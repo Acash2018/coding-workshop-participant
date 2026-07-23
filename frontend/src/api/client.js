@@ -266,6 +266,41 @@ export const initiativesApi = {
     request('/initiatives/employees', { method: 'POST', body: payload }),
 
   /**
+   * Lists active employees, used to pick an initiative owner.
+   *
+   * @returns {Promise<Array<object>>} Active employees in name order.
+   */
+  employees: () => request('/initiatives/employees'),
+
+  /**
+   * Lists an initiative's non-labour costs.
+   *
+   * @param {number} id Initiative id.
+   * @returns {Promise<Array<object>>} Recorded costs, most recent first.
+   */
+  costs: (id) => request(`/initiatives/${id}/costs`),
+
+  /**
+   * Records a non-labour cost against an initiative.
+   *
+   * @param {number} id Initiative id.
+   * @param {object} payload The cost.
+   * @returns {Promise<object>} The stored record.
+   */
+  addCost: (id, payload) =>
+    request(`/initiatives/${id}/costs`, { method: 'POST', body: payload }),
+
+  /**
+   * Removes a recorded cost.
+   *
+   * @param {number} id Initiative id.
+   * @param {number} costId Cost to remove.
+   * @returns {Promise<null>} Resolves once removed.
+   */
+  removeCost: (id, costId) =>
+    request(`/initiatives/${id}/costs/${costId}`, { method: 'DELETE' }),
+
+  /**
    * Creates an initiative.
    *
    * @param {object} payload The new initiative.
@@ -306,6 +341,13 @@ export const initiativesApi = {
    * @returns {Promise<object>} The caller's identity and role.
    */
   me: () => request('/initiatives/auth/me'),
+
+  /**
+   * Returns the database's current date, used to align date defaults.
+   *
+   * @returns {Promise<string>} The server date as an ISO string.
+   */
+  serverDate: () => request('/initiatives/health').then((h) => h.server_date),
 
   /**
    * Checks service and database reachability.

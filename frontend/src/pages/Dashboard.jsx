@@ -1,12 +1,15 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  Alert, Box, Grid, MenuItem, Paper, Skeleton, Stack, TextField, Typography,
+  Alert, Box, Button, Grid, MenuItem, Paper, Skeleton, Stack, TextField, Typography,
 } from '@mui/material';
+import AddIcon from '@mui/icons-material/Add';
 import initiativesApi from '../api/client';
+import { useAuth } from '../auth/AuthContext';
 import StatTile from '../components/StatTile';
 import RiskDistribution from '../components/RiskDistribution';
 import InitiativeTable from '../components/InitiativeTable';
 import InitiativeDetail from '../components/InitiativeDetail';
+import NewInitiativeDialog from '../components/NewInitiativeDialog';
 
 const RISK_OPTIONS = [
   { value: '', label: 'All risk levels' },
@@ -41,15 +44,22 @@ function money(value) {
  * @returns {JSX.Element} The rendered page.
  */
 export default function Dashboard() {
+  const { isAdmin } = useAuth();
   const [rows, setRows] = useState([]);
   const [department, setDepartment] = useState('');
   const [riskStatus, setRiskStatus] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selected, setSelected] = useState(null);
+  const [creating, setCreating] = useState(false);
+  const [serverDate, setServerDate] = useState('');
   // Bumped after any write so the portfolio reflects it. Budget consumption is
   // derived from allocations, so staffing changes move dashboard figures too.
   const [version, setVersion] = useState(0);
+
+  useEffect(() => {
+    initiativesApi.serverDate().then(setServerDate).catch(() => {});
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -104,14 +114,29 @@ export default function Dashboard() {
 
   return (
     <Stack spacing={3}>
-      <Box>
-        <Typography variant="h2" sx={{ mb: 0.5 }}>
-          Portfolio
-        </Typography>
-        <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-          Delivery health across every initiative.
-        </Typography>
-      </Box>
+      <Stack
+        direction="row"
+        sx={{ justifyContent: 'space-between', alignItems: 'flex-start', gap: 2 }}
+      >
+        <Box>
+          <Typography variant="h2" sx={{ mb: 0.5 }}>
+            Portfolio
+          </Typography>
+          <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+            Delivery health across every initiative.
+          </Typography>
+        </Box>
+        {isAdmin && (
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => setCreating(true)}
+            sx={{ flexShrink: 0 }}
+          >
+            New initiative
+          </Button>
+        )}
+      </Stack>
 
       {/* Filters sit in one row above the content, never between chart and legend. */}
       <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
@@ -204,6 +229,13 @@ export default function Dashboard() {
         initiative={selected}
         onClose={() => setSelected(null)}
         onChanged={() => setVersion((n) => n + 1)}
+      />
+
+      <NewInitiativeDialog
+        open={creating}
+        serverDate={serverDate}
+        onClose={() => setCreating(false)}
+        onCreated={() => setVersion((n) => n + 1)}
       />
 
       {summary.milestonesBehind > 0 && (

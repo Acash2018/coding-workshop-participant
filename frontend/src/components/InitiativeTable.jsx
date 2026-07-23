@@ -19,20 +19,23 @@ function percent(value) {
 }
 
 /**
- * Describes remaining time in words.
+ * Describes remaining time in weeks.
  *
- * A closed initiative is never "overdue" - it has already finished, and its
- * planned end date being in the past is expected rather than a problem.
+ * The whole application measures effort and budget in weeks, so timelines read
+ * in weeks too. Under a week rounds to "<1w" rather than a fractional value,
+ * which reads awkwardly at this scale. A closed initiative is never "overdue" -
+ * it has already finished, and a past end date is expected, not a problem.
  *
  * @param {number} days Days until the planned end date; negative when past.
  * @param {string} riskStatus The row's computed risk status.
- * @returns {string} A short human phrase.
+ * @returns {string} A short human phrase in weeks.
  */
-function describeDays(days, riskStatus) {
+function describeTimeline(days, riskStatus) {
   if (riskStatus === 'CLOSED') return 'Closed';
-  if (days < 0) return `${Math.abs(days)}d overdue`;
   if (days === 0) return 'Due today';
-  return `${days}d left`;
+  const weeks = Math.round(Math.abs(days) / 7);
+  const label = weeks < 1 ? '<1w' : `${weeks}w`;
+  return days < 0 ? `${label} overdue` : `${label} left`;
 }
 
 /**
@@ -118,7 +121,7 @@ export default function InitiativeTable({ rows, onSelect }) {
 
             <Typography variant="caption" sx={{ color: 'text.secondary', mt: 1.5, display: 'block' }}>
               {row.headcount} people · {Number(row.fte_committed).toFixed(1)} FTE ·{' '}
-              {describeDays(row.days_remaining, row.risk_status)}
+              {describeTimeline(row.days_remaining, row.risk_status)}
             </Typography>
           </Paper>
         ))}
@@ -190,7 +193,7 @@ export default function InitiativeTable({ rows, onSelect }) {
                   whiteSpace: 'nowrap',
                 }}
               >
-                {describeDays(row.days_remaining, row.risk_status)}
+                {describeTimeline(row.days_remaining, row.risk_status)}
               </TableCell>
             </TableRow>
           ))}

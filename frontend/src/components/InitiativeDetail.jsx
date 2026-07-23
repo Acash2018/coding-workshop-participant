@@ -13,6 +13,8 @@ import AddAllocationForm from './AddAllocationForm';
 import AllocationRow from './AllocationRow';
 import MilestoneRow from './MilestoneRow';
 import BudgetEditor from './BudgetEditor';
+import CostsPanel from './CostsPanel';
+import StatusEditor from './StatusEditor';
 import { riskRoles } from '../theme/vizTokens';
 
 /**
@@ -45,8 +47,14 @@ export default function InitiativeDetail({ initiative, onClose, onChanged }) {
   const [milestones, setMilestones] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [serverDate, setServerDate] = useState('');
   // Bumped after a write so the team list refetches without remounting.
   const [version, setVersion] = useState(0);
+
+  // The completion date defaults to the database's today, not the browser's.
+  useEffect(() => {
+    initiativesApi.serverDate().then(setServerDate).catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (!initiative) return undefined;
@@ -87,11 +95,21 @@ export default function InitiativeDetail({ initiative, onClose, onChanged }) {
 
   if (!initiative) return null;
 
+  // Three groups, not two: an allocation that has not started yet is upcoming,
+  // not past. Ordered current, then upcoming, then ended.
   const current = team.filter((row) => row.active_today);
-  const past = team.filter((row) => !row.active_today);
-  const currentFte = current.reduce(
+  const upcoming = team.filter((row) => !row.active_today && row.upcoming);
+  const past = team.filter((row) => !row.active_today && !row.upcoming);
+  const orderedTeam = [...current, ...upcoming, ...past];
+
+  const fte = (rows) => rows.reduce(
     (sum, row) => sum + Number(row.allocation_percent) / 100, 0,
   );
+  // FTE committed is today's commitment, matching the dashboard tile. Upcoming
+  // work is surfaced separately so adding someone who starts later still gives
+  // visible feedback rather than appearing to do nothing.
+  const currentFte = fte(current);
+  const upcomingFte = fte(upcoming);
   // The delivery date a stakeholder actually asks about is the last milestone,
   // not the initiative's planned_end_date - those can differ.
   const finalMilestone = milestones[milestones.length - 1];
@@ -158,6 +176,11 @@ export default function InitiativeDetail({ initiative, onClose, onChanged }) {
                   </Typography>
                   <Typography variant="body2" sx={{ color: 'text.secondary' }}>
                     FTE committed
+                    {upcomingFte > 0 && (
+                      <Box component="span" sx={{ color: 'text.secondary' }}>
+                        {' '}(+{upcomingFte.toFixed(1)} upcoming)
+                      </Box>
+                    )}
                   </Typography>
                 </Box>
               </Stack>
@@ -184,7 +207,7 @@ export default function InitiativeDetail({ initiative, onClose, onChanged }) {
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {[...current, ...past].map((row) => (
+                    {orderedTeam.map((row) => (
                       <AllocationRow
                         key={row.id}
                         row={row}
@@ -219,6 +242,26 @@ export default function InitiativeDetail({ initiative, onClose, onChanged }) {
               onSaved={handleChanged}
               editable={canManage}
             />
+
+            <Divider />
+
+            <CostsPanel
+              initiativeId={initiative.id}
+              serverDate={serverDate}
+              canManage={canManage}
+              onChanged={handleChanged}
+            />
+
+            {canManage && (
+              <>
+                <Divider />
+                <StatusEditor
+                  initiative={initiative}
+                  serverDate={serverDate}
+                  onSaved={handleChanged}
+                />
+              </>
+            )}
 
             <Divider />
 

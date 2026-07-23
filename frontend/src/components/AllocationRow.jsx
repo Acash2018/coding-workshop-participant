@@ -164,7 +164,12 @@ export default function AllocationRow({ row, initiativeId, onChanged, editable =
           {formatDate(row.start_date)} – {row.end_date ? formatDate(row.end_date) : 'open'}
         </Typography>
         {!row.active_today && (
-          <Chip label="ended" size="small" variant="outlined" sx={{ mt: 0.5 }} />
+          <Chip
+            label={row.upcoming ? 'upcoming' : 'ended'}
+            size="small"
+            variant="outlined"
+            sx={{ mt: 0.5 }}
+          />
         )}
         {error && <Alert severity="error" sx={{ mt: 1 }}>{error}</Alert>}
       </TableCell>

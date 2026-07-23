@@ -72,7 +72,9 @@ export function AuthProvider({ children }) {
       setUser(null);
     },
 
-    /** Whether the current user may create or edit initiatives and budgets. */
+    /** Whether the current user is an administrator. */
+    isAdmin: !!user && user.role === 'ADMIN',
+    /** Whether the current user may edit initiatives, budgets and costs. */
     canManage: !!user && MANAGERS.includes(user.role),
     /** Whether the current user may add, edit or remove allocations. */
     canStaff: !!user && STAFFERS.includes(user.role),
