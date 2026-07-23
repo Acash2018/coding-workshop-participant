@@ -6,14 +6,14 @@ import {
   Skeleton, Stack, Table, TableBody, TableCell, TableHead, TableRow, Typography,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
-import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked';
 import initiativesApi from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import StatusChip from './StatusChip';
 import AddAllocationForm from './AddAllocationForm';
 import AllocationRow from './AllocationRow';
+import MilestoneRow from './MilestoneRow';
 import BudgetEditor from './BudgetEditor';
-import { milestoneRoles, riskRoles } from '../theme/vizTokens';
+import { riskRoles } from '../theme/vizTokens';
 
 /**
  * Formats an ISO date as a short readable date.
@@ -26,18 +26,6 @@ function formatDate(iso) {
   return new Date(`${iso}T00:00:00`).toLocaleDateString('en-GB', {
     day: 'numeric', month: 'short', year: 'numeric',
   });
-}
-
-/**
- * Describes how late or early a milestone landed.
- *
- * @param {number|null} variance Days between actual and planned date.
- * @returns {string} A short phrase, empty when not yet delivered.
- */
-function describeVariance(variance) {
-  if (variance === null || variance === undefined) return '';
-  if (variance === 0) return 'on the day';
-  return variance > 0 ? `${variance}d late` : `${Math.abs(variance)}d early`;
 }
 
 /**
@@ -265,50 +253,18 @@ export default function InitiativeDetail({ initiative, onClose, onChanged }) {
                       <TableCell>Status</TableCell>
                       <TableCell>Planned</TableCell>
                       <TableCell>Actual</TableCell>
+                      <TableCell align="right" />
                     </TableRow>
                   </TableHead>
                   <TableBody>
                     {milestones.map((row) => (
-                      <TableRow key={row.id}>
-                        <TableCell>
-                          <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                            {row.name}
-                          </Typography>
-                          {row.depends_on.length > 0 && (
-                            <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                              after {row.depends_on.join(', ')}
-                            </Typography>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <StatusChip
-                            role={milestoneRoles[row.health]?.role ?? 'neutral'}
-                            label={milestoneRoles[row.health]?.label ?? row.status}
-                            dense
-                            // A healthy but unfinished milestone shares the
-                            // "good" colour with a completed one, so it needs a
-                            // different mark - an open circle, not a tick.
-                            icon={row.status === 'COMPLETED' ? undefined : RadioButtonUncheckedIcon}
-                          />
-                        </TableCell>
-                        <TableCell sx={{ whiteSpace: 'nowrap' }}>
-                          {formatDate(row.planned_date)}
-                        </TableCell>
-                        <TableCell sx={{ whiteSpace: 'nowrap' }}>
-                          {formatDate(row.actual_date)}
-                          {row.days_variance !== null && row.days_variance !== undefined && (
-                            <Typography
-                              variant="caption"
-                              sx={{
-                                display: 'block',
-                                color: row.days_variance > 0 ? 'error.main' : 'text.secondary',
-                              }}
-                            >
-                              {describeVariance(row.days_variance)}
-                            </Typography>
-                          )}
-                        </TableCell>
-                      </TableRow>
+                      <MilestoneRow
+                        key={row.id}
+                        row={row}
+                        initiativeId={initiative.id}
+                        onChanged={handleChanged}
+                        editable={canManage}
+                      />
                     ))}
                   </TableBody>
                 </Table>

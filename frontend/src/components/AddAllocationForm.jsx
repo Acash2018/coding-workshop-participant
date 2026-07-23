@@ -125,17 +125,27 @@ export default function AddAllocationForm({ initiativeId, onAdded, refreshKey })
               Add a new employee…
             </MenuItem>
             <Divider />
-            {candidates.map((row) => (
-              <MenuItem key={row.id} value={row.id} disabled={Number(row.available_percent) <= 0}>
-                {row.full_name}
-                <Typography component="span" variant="caption" sx={{ color: 'text.secondary', ml: 1 }}>
-                  {Number(row.available_percent) <= 0
-                    ? 'fully committed'
-                    : `${Number(row.available_percent).toFixed(0)}% free`}
-                  {row.already_on_initiative ? ' · already on this' : ''}
-                </Typography>
-              </MenuItem>
-            ))}
+            {candidates.map((row) => {
+              // Someone already committed to this initiative in the chosen
+              // window is disabled: adding them again creates a second row for
+              // the same person, when the intent is almost always to edit the
+              // existing allocation. A non-overlapping future window leaves
+              // already_on_initiative false, so genuine re-staffing still works.
+              const noCapacity = Number(row.available_percent) <= 0;
+              const disabled = noCapacity || row.already_on_initiative;
+              let note;
+              if (row.already_on_initiative) note = 'already here — edit their row';
+              else if (noCapacity) note = 'fully committed';
+              else note = `${Number(row.available_percent).toFixed(0)}% free`;
+              return (
+                <MenuItem key={row.id} value={row.id} disabled={disabled}>
+                  {row.full_name}
+                  <Typography component="span" variant="caption" sx={{ color: 'text.secondary', ml: 1 }}>
+                    {note}
+                  </Typography>
+                </MenuItem>
+              );
+            })}
           </TextField>
 
           <TextField

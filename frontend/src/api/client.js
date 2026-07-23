@@ -195,6 +195,21 @@ export const initiativesApi = {
   milestones: (id) => request(`/initiatives/${id}/milestones`),
 
   /**
+   * Edits a milestone's status or dates.
+   *
+   * @param {number} id Initiative id.
+   * @param {number} milestoneId Milestone to change.
+   * @param {object} payload Fields to change.
+   * @returns {Promise<object>} The milestone with recomputed health.
+   * @throws {ApiError} 400 if marked complete with no actual date.
+   */
+  updateMilestone: (id, milestoneId, payload) =>
+    request(`/initiatives/${id}/milestones/${milestoneId}`, {
+      method: 'PATCH',
+      body: payload,
+    }),
+
+  /**
    * Lists employees with spare capacity during a proposed allocation window.
    *
    * @param {number} id Initiative id.

@@ -9,6 +9,7 @@ from schemas.allocation import AllocationCreate, AllocationUpdate
 from schemas.auth import CurrentUserResponse, LoginRequest, Role, TokenResponse
 from schemas.common import ErrorResponse, Page
 from schemas.employee import Employee, EmployeeCreate, EmploymentType
+from schemas.milestone import MilestoneStatus, MilestoneUpdate
 from schemas.initiative import (
     Initiative,
     InitiativeCreate,
@@ -34,6 +35,8 @@ __all__ = [
     "InitiativeStatus",
     "InitiativeStatusRow",
     "InitiativeUpdate",
+    "MilestoneStatus",
+    "MilestoneUpdate",
     "Page",
     "RiskStatus",
 ]
