@@ -2,10 +2,11 @@ import { useEffect, useState } from 'react';
 import PropTypes from 'prop-types';
 import { useMediaQuery } from 'react-responsive';
 import {
-  Alert, Box, Chip, Dialog, DialogContent, DialogTitle, Divider, IconButton,
+  Alert, Box, Button, Chip, Dialog, DialogContent, DialogTitle, Divider, IconButton,
   Skeleton, Stack, Table, TableBody, TableCell, TableHead, TableRow, Typography,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlined';
 import initiativesApi from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import StatusChip from './StatusChip';
@@ -91,6 +92,7 @@ export default function InitiativeDetail({ initiative, onClose, onChanged }) {
   const [milestones, setMilestones] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [deleting, setDeleting] = useState(false);
   const [serverDate, setServerDate] = useState('');
   // Bumped after a write so the team list refetches without remounting.
   const [version, setVersion] = useState(0);
@@ -135,6 +137,33 @@ export default function InitiativeDetail({ initiative, onClose, onChanged }) {
   const handleChanged = () => {
     setVersion((n) => n + 1);
     onChanged();
+  };
+
+  /**
+   * Deletes the whole initiative after confirming intent. Admin only.
+   *
+   * The cascade takes its milestones, allocations and costs with it, so this is
+   * gated behind a confirm. On success the portfolio behind the dialog is
+   * refreshed and the dialog closes, since the record it described is gone.
+   *
+   * @returns {Promise<void>} Resolves once the request settles.
+   */
+  const handleDelete = async () => {
+    // eslint-disable-next-line no-alert
+    if (!window.confirm(
+      `Delete initiative "${initiative.name}"? This also removes its `
+      + 'milestones, allocations and costs, and cannot be undone.',
+    )) return;
+    setDeleting(true);
+    setError(null);
+    try {
+      await initiativesApi.remove(initiative.id);
+      onChanged();
+      onClose();
+    } catch (err) {
+      setError(err.message);
+      setDeleting(false);
+    }
   };
 
   if (!initiative) return null;
@@ -372,6 +401,30 @@ export default function InitiativeDetail({ initiative, onClose, onChanged }) {
                 />
               )}
             </Box>
+
+            {/* Deleting a whole initiative is an administrative act and
+                irreversible, so it is admin-only and set apart from the
+                editing controls above. The server enforces the role too. */}
+            {isAdmin && (
+              <>
+                <Divider />
+                <Box>
+                  <Button
+                    color="error"
+                    variant="outlined"
+                    startIcon={<DeleteOutlineIcon />}
+                    onClick={handleDelete}
+                    disabled={deleting}
+                  >
+                    {deleting ? 'Deleting…' : 'Delete initiative'}
+                  </Button>
+                  <Typography variant="caption" sx={{ display: 'block', mt: 1, color: 'text.secondary' }}>
+                    Removes this initiative and all its milestones, allocations
+                    and costs. This cannot be undone.
+                  </Typography>
+                </Box>
+              </>
+            )}
           </Stack>
         )}
       </DialogContent>

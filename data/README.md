@@ -487,6 +487,106 @@ renders the readable chain, e.g.
 
 ---
 
+## Authentication (JWT)
+
+The `app_users` table above is only half of authentication; the other half is a
+stateless **JWT** flow. It lives in one backend module —
+[`core/security.py`](../backend/initiatives/core/security.py) — and uses
+**PyJWT** with **HS256**. There is no session store and no refresh token: a
+single access token carries everything authorization needs.
+
+### The token
+
+`create_access_token(user)` signs these claims:
+
+| Claim   | Source                    | Used for                            |
+| ------- | ------------------------- | ----------------------------------- |
+| `sub`   | `app_users.id` (as text)  | Subject / user id                   |
+| `email` | `app_users.email`         | Display, `/auth/me`                 |
+| `role`  | `app_users.role`          | **Authorization** (see below)       |
+| `name`  | `app_users.display_name`  | Greeting in the UI                  |
+| `iat`   | now                       | Issued-at                           |
+| `exp`   | now + 8h (`TOKEN_TTL`)    | Expiry                              |
+
+The role is deliberately **baked into the token**, so a request is authorized
+from the claims alone with no lookup against `app_users`. The trade-off: a role
+change in the table only takes effect at the user's **next login**, once the
+old 8-hour token expires.
+
+### The flow
+
+```
+POST /api/initiatives/auth/login   {email, password}
+      │  authenticate() → scrypt verify against app_users.password_hash
+      ▼
+   TokenResponse {access_token, expires_in, role, display_name}
+      │  frontend stores it in localStorage  ('acme.auth.token')
+      ▼
+every request:  Authorization: Bearer <token>
+      │  get_current_user() → decode_token() → claims dict
+      ▼
+   require_roles(...) guard checks claims['role']
+```
+
+- **Login** — `POST /auth/login` in [`routers/auth.py`](../backend/initiatives/routers/auth.py).
+  `authenticate(email, password)` verifies the password against
+  `app_users.password_hash` using stdlib `hashlib.scrypt` (chosen over
+  bcrypt/argon2 to dodge compiled-wheel issues on Lambda). It computes a hash
+  even when the email is unknown, so a missing user and a wrong password take
+  the same time and return the same 401 — no user enumeration.
+- **Validation** — `get_current_user` pulls the token from the
+  `Authorization: Bearer …` header via `HTTPBearer`, and `decode_token` verifies
+  the signature and expiry, mapping `ExpiredSignatureError` → 401 "Token has
+  expired" and any other `InvalidTokenError` → 401 "Could not validate
+  credentials".
+- **`GET /auth/me`** lets a client validate a stored token on page load and
+  recover the user's role/name without decoding the JWT itself.
+
+### Roles map straight onto `app_users.role`
+
+The four roles are exactly the `CHECK` values on `app_users.role`
+([`schema.sql`](./schema.sql)). Every router requires a valid token
+(`dependencies=[security.RequireAuth]`); write endpoints additionally require a
+role group via a `require_roles(...)` guard that returns **403** on a mismatch:
+
+| Group      | Roles                                   | Guards, e.g.                          |
+| ---------- | --------------------------------------- | ------------------------------------- |
+| `ADMIN`    | `ADMIN`                                 | create initiative, add/remove milestone |
+| `MANAGERS` | `ADMIN`, `PROJECT_MANAGER`              | edit initiative, edit milestone, costs  |
+| `STAFFERS` | `ADMIN`, `PROJECT_MANAGER`, `TEAM_LEAD` | create/edit/delete allocations          |
+| *(any)*    | all four, incl. `VIEWER`                | every read endpoint                     |
+
+`require_roles` validates its arguments against `ROLES` at **import time**, so a
+mistyped role name is a startup `ValueError`, not a silent always-deny. The
+frontend mirrors these groups in
+[`AuthContext.jsx`](../frontend/src/auth/AuthContext.jsx) (`isAdmin`,
+`canManage`, `canStaff`) purely to hide controls — the server is the only
+enforcer.
+
+### Configuration and one gap to be aware of
+
+Algorithm and expiry are hardcoded constants (`HS256`, 8h). The signing secret
+comes from `_secret()`, which reads the **`JWT_SECRET`** env var and falls back
+to a published dev constant (`dev-only-insecure-secret-change-me`) when it is
+empty, logging an error unless `IS_LOCAL=true`.
+
+> **`JWT_SECRET` is not set anywhere in the infrastructure.** It is referenced
+> only in `core/security.py`; the Lambda env-var block in
+> [`infra/locals.tf`](../infra/locals.tf) does not define it (unlike the
+> `POSTGRES_*` vars). A deployed instance would therefore sign tokens with the
+> **publicly known dev secret** — meaning anyone could forge an `ADMIN` token —
+> and only emit a log line. Setting `JWT_SECRET` in `locals.tf` (ideally from a
+> secrets manager) is required before this is exposed.
+
+### Creating the first admin
+
+There is no self-service registration endpoint by design. Admins are seeded with
+[`create_admin.py`](./create_admin.py), which `INSERT … ON CONFLICT (email) DO
+UPDATE`s into `app_users`, reusing `core.security.hash_password` and enforcing an
+8-character minimum. Run it against the same database the schema was applied to.
+
+---
+
 ## Testing
 
 Requires a local PostgreSQL. Credentials match

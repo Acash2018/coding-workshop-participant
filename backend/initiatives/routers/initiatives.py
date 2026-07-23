@@ -171,10 +171,14 @@ def update_initiative(
 @router.delete("/{initiative_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_initiative(
     initiative_id: int,
-    _auth: dict = security.require_roles(*security.MANAGERS),
+    _auth: dict = security.require_roles("ADMIN"),
 ) -> Response:
     """
     Deletes an initiative and, by cascade, its milestones, allocations and costs.
+
+    Restricted to ADMIN, mirroring creation: standing up and tearing down an
+    initiative are administrative acts, whereas managers run the ones that
+    exist. The cascade makes this irreversible, so it is the narrower role.
 
     Args:
         initiative_id: Primary key.
