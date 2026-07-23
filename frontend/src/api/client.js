@@ -210,6 +210,26 @@ export const initiativesApi = {
     }),
 
   /**
+   * Adds a milestone to an initiative.
+   *
+   * @param {number} id Initiative id.
+   * @param {object} payload The milestone, with optional prerequisites.
+   * @returns {Promise<object>} The stored milestone with its health.
+   */
+  addMilestone: (id, payload) =>
+    request(`/initiatives/${id}/milestones`, { method: 'POST', body: payload }),
+
+  /**
+   * Removes a milestone.
+   *
+   * @param {number} id Initiative id.
+   * @param {number} milestoneId Milestone to remove.
+   * @returns {Promise<null>} Resolves once removed.
+   */
+  removeMilestone: (id, milestoneId) =>
+    request(`/initiatives/${id}/milestones/${milestoneId}`, { method: 'DELETE' }),
+
+  /**
    * Lists employees with spare capacity during a proposed allocation window.
    *
    * @param {number} id Initiative id.

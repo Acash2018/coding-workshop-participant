@@ -12,6 +12,7 @@ import StatusChip from './StatusChip';
 import AddAllocationForm from './AddAllocationForm';
 import AllocationRow from './AllocationRow';
 import MilestoneRow from './MilestoneRow';
+import AddMilestoneForm from './AddMilestoneForm';
 import BudgetEditor from './BudgetEditor';
 import CostsPanel from './CostsPanel';
 import StatusEditor from './StatusEditor';
@@ -31,6 +32,49 @@ function formatDate(iso) {
 }
 
 /**
+ * Orders milestones so each one appears after the milestones it depends on.
+ *
+ * A stable topological sort: rows are emitted in the server's order
+ * (sequence_no, then planned date), except a milestone is held back until
+ * every prerequisite that also belongs to this initiative has been emitted.
+ * Prerequisites on other initiatives are not in this list, so they place no
+ * constraint here. A dependency cycle - which the API prevents - degrades to
+ * the server order rather than dropping any row.
+ *
+ * @param {Array<object>} rows Milestones, each with id and depends_on_ids.
+ * @returns {Array<object>} The same rows, dependency-ordered.
+ */
+function orderByDependency(rows) {
+  const present = new Set(rows.map((row) => row.id));
+  const emitted = new Set();
+  const ordered = [];
+
+  // Repeatedly emit every row whose in-list prerequisites are all satisfied,
+  // scanning in server order each pass so ties keep that order. Passes repeat
+  // until one adds nothing, which means either we are done or a cycle remains.
+  let progressed = true;
+  while (ordered.length < rows.length && progressed) {
+    progressed = false;
+    rows.forEach((row) => {
+      if (emitted.has(row.id)) return;
+      const ready = (row.depends_on_ids ?? [])
+        .every((id) => !present.has(id) || emitted.has(id));
+      if (ready) {
+        ordered.push(row);
+        emitted.add(row.id);
+        progressed = true;
+      }
+    });
+  }
+
+  // Append anything a cycle left behind, so nothing silently disappears.
+  rows.forEach((row) => {
+    if (!emitted.has(row.id)) ordered.push(row);
+  });
+  return ordered;
+}
+
+/**
  * Detail view for a single initiative: who is on it, and what is due when.
  *
  * Opens as a dialog rather than a separate route so the reader keeps the
@@ -42,7 +86,7 @@ function formatDate(iso) {
  */
 export default function InitiativeDetail({ initiative, onClose, onChanged }) {
   const isNarrow = useMediaQuery({ maxWidth: 899 });
-  const { canManage, canStaff } = useAuth();
+  const { canManage, canStaff, isAdmin } = useAuth();
   const [team, setTeam] = useState([]);
   const [milestones, setMilestones] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -110,9 +154,13 @@ export default function InitiativeDetail({ initiative, onClose, onChanged }) {
   // visible feedback rather than appearing to do nothing.
   const currentFte = fte(current);
   const upcomingFte = fte(upcoming);
+  // Milestones read in dependency order, so each sits below the work it
+  // depends on rather than in raw sequence order.
+  const orderedMilestones = orderByDependency(milestones);
   // The delivery date a stakeholder actually asks about is the last milestone,
-  // not the initiative's planned_end_date - those can differ.
-  const finalMilestone = milestones[milestones.length - 1];
+  // not the initiative's planned_end_date - those can differ. In dependency
+  // order the final row is the one nothing else waits on.
+  const finalMilestone = orderedMilestones[orderedMilestones.length - 1];
 
   return (
     <Dialog
@@ -300,18 +348,28 @@ export default function InitiativeDetail({ initiative, onClose, onChanged }) {
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {milestones.map((row) => (
+                    {orderedMilestones.map((row) => (
                       <MilestoneRow
                         key={row.id}
                         row={row}
                         initiativeId={initiative.id}
                         onChanged={handleChanged}
                         editable={canManage}
+                        deletable={isAdmin}
                       />
                     ))}
                   </TableBody>
                 </Table>
                 </Box>
+              )}
+
+              {isAdmin && (
+                <AddMilestoneForm
+                  initiativeId={initiative.id}
+                  existing={milestones}
+                  serverDate={serverDate}
+                  onAdded={handleChanged}
+                />
               )}
             </Box>
           </Stack>

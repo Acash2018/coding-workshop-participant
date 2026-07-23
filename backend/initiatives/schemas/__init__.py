@@ -10,7 +10,7 @@ from schemas.auth import CurrentUserResponse, LoginRequest, Role, TokenResponse
 from schemas.common import ErrorResponse, Page
 from schemas.cost import Cost, CostCategory, CostCreate
 from schemas.employee import Employee, EmployeeCreate, EmploymentType
-from schemas.milestone import MilestoneStatus, MilestoneUpdate
+from schemas.milestone import MilestoneCreate, MilestoneStatus, MilestoneUpdate
 from schemas.initiative import (
     Initiative,
     InitiativeCreate,
@@ -39,6 +39,7 @@ __all__ = [
     "InitiativeStatus",
     "InitiativeStatusRow",
     "InitiativeUpdate",
+    "MilestoneCreate",
     "MilestoneStatus",
     "MilestoneUpdate",
     "Page",

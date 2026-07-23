@@ -3,11 +3,43 @@
 from datetime import date
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 MilestoneStatus = Literal[
     "NOT_STARTED", "STARTED", "IN_PROGRESS", "COMPLETED", "BLOCKED"
 ]
+
+
+class MilestoneCreate(BaseModel):
+    """
+    Payload for adding a milestone to an initiative.
+
+    A milestone is a deliverable checkpoint, not a task. sequence_no is assigned
+    by the server (next in line) when omitted. depends_on lists the milestones
+    that must finish first - the prerequisites that form the dependency chain,
+    and which may belong to another initiative.
+    """
+
+    name: Annotated[str, Field(min_length=1, max_length=200)]
+    status: MilestoneStatus = "NOT_STARTED"
+    planned_date: date
+    actual_date: date | None = None
+    depends_on: list[int] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def check_completed_has_actual(self) -> "MilestoneCreate":
+        """
+        Rejects a milestone created as COMPLETED with no actual date.
+
+        Returns:
+            MilestoneCreate: The validated model.
+
+        Raises:
+            ValueError: If status is COMPLETED without an actual date.
+        """
+        if self.status == "COMPLETED" and self.actual_date is None:
+            raise ValueError("A completed milestone needs an actual date")
+        return self
 
 
 class MilestoneUpdate(BaseModel):

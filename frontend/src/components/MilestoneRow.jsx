@@ -4,6 +4,7 @@ import {
   Alert, Box, IconButton, MenuItem, Stack, TableCell, TableRow, TextField, Tooltip, Typography,
 } from '@mui/material';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlined';
 import CheckIcon from '@mui/icons-material/Check';
 import CloseIcon from '@mui/icons-material/Close';
 import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked';
@@ -62,7 +63,9 @@ function describeVariance(variance) {
  *          editable?: boolean}} props Component props.
  * @returns {JSX.Element} The rendered row.
  */
-export default function MilestoneRow({ row, initiativeId, onChanged, editable = true }) {
+export default function MilestoneRow({
+  row, initiativeId, onChanged, editable = true, deletable = false,
+}) {
   const [editing, setEditing] = useState(false);
   const [statusValue, setStatusValue] = useState(row.status);
   const [plannedDate, setPlannedDate] = useState(row.planned_date ?? '');
@@ -106,6 +109,22 @@ export default function MilestoneRow({ row, initiativeId, onChanged, editable = 
     setActualDate(row.actual_date ?? '');
     setError(null);
     setEditing(false);
+  };
+
+  /**
+   * Removes this milestone after confirming intent.
+   *
+   * @returns {Promise<void>} Resolves once the request settles.
+   */
+  const handleRemove = async () => {
+    // eslint-disable-next-line no-alert
+    if (!window.confirm(`Remove milestone "${row.name}"?`)) return;
+    try {
+      await initiativesApi.removeMilestone(initiativeId, row.id);
+      onChanged();
+    } catch (err) {
+      setError(err.message);
+    }
   };
 
   if (editing) {
@@ -200,16 +219,28 @@ export default function MilestoneRow({ row, initiativeId, onChanged, editable = 
         )}
       </TableCell>
       <TableCell align="right">
-        {editable && (
-          <Tooltip title="Edit status and dates">
-            <IconButton
-              size="small" onClick={() => setEditing(true)}
-              aria-label={`Edit ${row.name}`}
-            >
-              <EditOutlinedIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
-        )}
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+          {editable && (
+            <Tooltip title="Edit status and dates">
+              <IconButton
+                size="small" onClick={() => setEditing(true)}
+                aria-label={`Edit ${row.name}`}
+              >
+                <EditOutlinedIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          )}
+          {deletable && (
+            <Tooltip title="Remove milestone">
+              <IconButton
+                size="small" onClick={handleRemove}
+                aria-label={`Remove ${row.name}`}
+              >
+                <DeleteOutlineIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          )}
+        </Box>
       </TableCell>
     </TableRow>
   );
@@ -224,4 +255,6 @@ MilestoneRow.propTypes = {
   onChanged: PropTypes.func.isRequired,
   /** Whether to show the edit control. */
   editable: PropTypes.bool,
+  /** Whether to show the remove control (admin only). */
+  deletable: PropTypes.bool,
 };
