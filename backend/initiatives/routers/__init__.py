@@ -8,6 +8,7 @@ on route precedence there.
 from routers import (
     allocations,
     auth,
+    costs,
     employees,
     initiatives,
     milestones,
@@ -17,6 +18,7 @@ from routers import (
 __all__ = [
     "allocations",
     "auth",
+    "costs",
     "employees",
     "initiatives",
     "milestones",

@@ -48,6 +48,11 @@ def get_team(initiative_id: int) -> list[dict]:
                a.start_date,
                a.end_date,
                (a.period @> current_date) AS active_today,
+               -- Whether the allocation is still in the future, decided against
+               -- the database's today rather than the browser's - the two can
+               -- differ by a day across a timezone boundary, and only the
+               -- database's view agrees with the FTE and budget figures.
+               (a.start_date > current_date) AS upcoming,
                ROUND(a.allocation_percent / 100.0 * e.weekly_capacity_hours, 1)
                    AS hours_per_week
           FROM allocations a

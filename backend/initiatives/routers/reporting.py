@@ -21,11 +21,18 @@ def health() -> dict[str, str]:
     Returns:
         dict: Status payload naming the connected database.
     """
-    row = db.query_one("SELECT current_database() AS database, version() AS version")
+    row = db.query_one(
+        "SELECT current_database() AS database, version() AS version, "
+        "current_date::text AS server_date"
+    )
     return {
         "status": "ok",
         "database": row["database"],
         "version": row["version"].split(",")[0],
+        # The database's notion of today. Clients default date fields to this so
+        # a "start today" allocation actually counts today, rather than landing
+        # a day in the future when the browser clock leads the server's.
+        "server_date": row["server_date"],
     }
 
 

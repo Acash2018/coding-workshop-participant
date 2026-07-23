@@ -80,10 +80,14 @@ def list_initiatives(
 @router.post("/", response_model=Initiative, status_code=status.HTTP_201_CREATED)
 def create_initiative(
     payload: InitiativeCreate,
-    _auth: dict = security.require_roles(*security.MANAGERS),
+    _auth: dict = security.require_roles("ADMIN"),
 ) -> Initiative:
     """
     Creates an initiative.
+
+    Restricted to ADMIN. Spinning up a new initiative is an administrative act;
+    project managers run existing ones (edit budget, status, staffing) but do
+    not create them.
 
     Args:
         payload: The new initiative.

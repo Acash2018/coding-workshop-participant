@@ -8,6 +8,7 @@ individual modules.
 from schemas.allocation import AllocationCreate, AllocationUpdate
 from schemas.auth import CurrentUserResponse, LoginRequest, Role, TokenResponse
 from schemas.common import ErrorResponse, Page
+from schemas.cost import Cost, CostCategory, CostCreate
 from schemas.employee import Employee, EmployeeCreate, EmploymentType
 from schemas.milestone import MilestoneStatus, MilestoneUpdate
 from schemas.initiative import (
@@ -26,6 +27,9 @@ __all__ = [
     "EmployeeCreate",
     "EmploymentType",
     "CurrentUserResponse",
+    "Cost",
+    "CostCategory",
+    "CostCreate",
     "ErrorResponse",
     "LoginRequest",
     "Role",

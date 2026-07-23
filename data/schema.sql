@@ -163,6 +163,46 @@ CREATE TABLE milestone_dependencies (
 CREATE INDEX milestone_dependencies_reverse_idx
     ON milestone_dependencies (depends_on_milestone_id);
 
+-- --- The completion rule -----------------------------------------------------
+-- An initiative may only be marked COMPLETED once every one of its milestones
+-- is complete. The rollout is covered for free: it is simply the last
+-- milestone, so "all milestones complete" includes it. Lives here beside the
+-- capacity rule so it holds for any writer, not just the API.
+
+CREATE OR REPLACE FUNCTION enforce_initiative_completion() RETURNS trigger AS $$
+DECLARE
+    v_open  integer;
+    v_names text;
+BEGIN
+    IF NEW.status = 'COMPLETED' THEN
+        SELECT count(*), string_agg(name, ', ' ORDER BY sequence_no)
+          INTO v_open, v_names
+          FROM milestones
+         WHERE initiative_id = NEW.id
+           AND status <> 'COMPLETED';
+
+        IF COALESCE(v_open, 0) > 0 THEN
+            RAISE EXCEPTION
+                'Initiative % cannot be completed: % milestone(s) still open (%)',
+                NEW.code, v_open, v_names
+                USING ERRCODE = 'check_violation',
+                      HINT = 'Every milestone, including rollout, must be completed first.';
+        END IF;
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- UPDATE OF status only: a brand-new initiative has no milestones yet, so there
+-- is nothing to check on INSERT, and the fixture completes LGY-2025 before its
+-- milestone exists.
+CREATE TRIGGER initiatives_completion_check
+    BEFORE UPDATE OF status ON initiatives
+    FOR EACH ROW EXECUTE FUNCTION enforce_initiative_completion();
+
+COMMENT ON TRIGGER initiatives_completion_check ON initiatives IS
+    'Blocks marking an initiative COMPLETED while any milestone is still open.';
+
 -- -----------------------------------------------------------------------------
 -- Allocations (percent commitment of an employee to an initiative)
 -- -----------------------------------------------------------------------------

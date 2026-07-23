@@ -20,6 +20,7 @@ from core import database as db
 from routers import (
     allocations,
     auth,
+    costs,
     employees,
     initiatives,
     milestones,
@@ -59,6 +60,7 @@ app.include_router(auth.router)
 app.include_router(reporting.router)
 app.include_router(employees.router)
 app.include_router(milestones.router)
+app.include_router(costs.router)
 app.include_router(allocations.router)
 app.include_router(initiatives.router)
 
